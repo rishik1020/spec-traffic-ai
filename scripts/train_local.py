@@ -89,20 +89,42 @@ def class_counts(ds: Path, names: dict) -> dict:
 # --- charts ----------------------------------------------------------------
 
 def training_curves(run: Path):
-    import pandas as pd
+    """Plot the four panels that actually tell you something.
+
+    Reads results.csv with the stdlib csv module rather than pandas. pandas is
+    a heavy dependency to require for one file read, and if it is missing (or
+    has a numpy binary mismatch, which is common) this step would crash AFTER a
+    multi-hour training run -- the worst possible place to fail.
+    """
+    import csv as _csv
     import matplotlib.pyplot as plt
 
-    csv = run / 'results.csv'
-    if not csv.exists():
+    csv_path = run / 'results.csv'
+    if not csv_path.exists():
         print('  (no results.csv, skipping curves)')
         return
-    df = pd.read_csv(csv)
-    df.columns = df.columns.str.strip()
+
+    with open(csv_path, newline='', encoding='utf-8') as fh:
+        rows = list(_csv.DictReader(fh))
+    if not rows:
+        print('  (results.csv empty, skipping curves)')
+        return
+
+    data: dict[str, list[float]] = {}
+    for key in rows[0]:
+        clean = key.strip()
+        vals = []
+        for r in rows:
+            try:
+                vals.append(float(r[key]))
+            except (TypeError, ValueError):
+                vals.append(float('nan'))
+        data[clean] = vals
 
     def col(name):
-        return df[name] if name in df.columns else None
+        return data.get(name)
 
-    ep = df['epoch'] if 'epoch' in df else range(len(df))
+    ep = data.get('epoch') or list(range(len(rows)))
     fig, ax = plt.subplots(2, 2, figsize=(14, 9))
     fig.suptitle('Senti Traffic - training diagnostics', fontsize=15, fontweight='bold')
 
