@@ -1,0 +1,43 @@
+# SPEC Traffic AI -- per-camera profile
+#
+# This file is the whole reason "junction camera" and "highway camera" are not
+# separate codebases. Same binary, same perception pass -- what differs is which
+# rules are switched on and the geometry they are calibrated against.
+
+camera_id: demo01
+location: "Demo junction, Hyderabad"
+
+weights: runs/driveindia/weights/best.pt
+imgsz: 640
+stride: 1              # process every Nth frame; raise to hit real-time budget
+
+evidence:
+  pre_seconds: 5.0     # history held before the violation
+  post_seconds: 3.0    # captured after it
+  downscale: 0.5       # buffer at half size; a 1080p buffer is ~800MB otherwise
+
+rules:
+  wrong_way:
+    # Image coordinates -- y increases DOWNWARD.
+    # [0, -1] = traffic should move toward the TOP of the frame.
+    allowed_heading: [0, -1]
+    tolerance_deg: 70       # how far off flow before it counts
+    min_displacement: 40    # px; ignores parked vehicles whose "heading" is jitter
+    min_frames: 8           # temporal consistency
+    cooldown_frames: 200    # do not re-fire on the same vehicle
+
+  # Enable as each is implemented:
+  #
+  # triple_riding:
+  #   min_riders: 3
+  #   min_overlap: 0.35
+  #   min_frames: 10
+  #
+  # red_light_jump:
+  #   stop_line: [[420, 700], [1500, 700]]
+  #   min_frames: 3
+  #
+  # over_speeding:
+  #   limit_kmph: 50
+  #   homography_src: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
+  #   homography_dst_m: [[0,0],[3.5,0],[3.5,20],[0,20]]
