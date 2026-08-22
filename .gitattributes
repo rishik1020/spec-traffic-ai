@@ -1,0 +1,14 @@
+# Normalise line endings so Windows/Linux checkouts do not produce spurious diffs
+* text=auto eol=lf
+
+*.py    text eol=lf
+*.md    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.txt   text eol=lf
+
+# Never touch binaries
+*.pt    binary
+*.jpg   binary
+*.png   binary
+*.mp4   binary

@@ -1,0 +1,21 @@
+# SPEC Traffic AI -- runtime dependencies
+# Python 3.10+
+#
+# GPU users: install the CUDA build of torch FIRST, or pip will pull the
+# CPU-only wheel and training will be unusably slow:
+#
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+
+ultralytics>=8.3.0        # YOLO11 -- AGPL-3.0, see LICENSE third-party notices
+supervision>=0.25.0       # detection parsing, zones, line crossing (MIT)
+torch>=2.2.0
+torchvision>=0.17.0
+opencv-python>=4.9.0      # NOT opencv-python-headless -- --show needs a GUI
+numpy>=1.26.0
+PyYAML>=6.0
+matplotlib>=3.8.0         # training curves, gap chart, per-class chart
+Pillow>=10.0.0
+
+# dataset acquisition (optional)
+kaggle>=1.6.0
+huggingface_hub>=0.20.0
