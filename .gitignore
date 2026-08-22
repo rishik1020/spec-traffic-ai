@@ -1,0 +1,15 @@
+.env
+*.pt
+datasets/
+runs/
+weights/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# runtime output
+data/evidence/
+data/videos/
+*.log
+train.log
