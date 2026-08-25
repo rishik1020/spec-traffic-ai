@@ -11,13 +11,26 @@ road conditions, with human-in-the-loop e-challan verification.
 
 ## ✅ DONE
 
-### 1. Detection model — baseline trained
-- **Interim model** (Kaggle `traffic-vehicles`, 916 imgs, 7 classes)
-  → **0.910 mAP@50 on held-out test**, `auto` best class at **0.968**
-  → train→test generalisation gap **0.057** (healthy)
-- **DriveIndia subset prepared**: 12,000 train / 1,500 val / 1,500 test,
-  28 classes, 74,016 boxes, rare-class-first sampling, official splits preserved
-- **DriveIndia training IN PROGRESS** — epoch 3/60, mAP@50 0.442 rising
+### 1. Detection model — TRAINED ✅
+- **DriveIndia fine-tune complete**: `yolo11s`, 50 epochs, 7.7 h on RTX 4050 (6 GB)
+- Dataset: 12,000 train / 1,500 val / 1,500 test, **21 classes** (pruned from 28 —
+  7 classes had 0–22 boxes and would have scored 0.000, dragging the mean down)
+- Official DriveIndia splits preserved (no re-splitting → no frame leakage)
+
+| | epoch | mAP@50 | mAP@50-95 | precision | recall |
+|---|---|---|---|---|---|
+| **best** | 38 | **0.7157** | 0.5977 | 0.7210 | 0.6791 |
+| final | 50 | 0.7004 | 0.5847 | 0.6714 | 0.6807 |
+
+> ⚠️ Those are **validation** figures from `results.csv`. The **test** number —
+> the one to quote against DriveIndia's published **78.7%** baseline — is the
+> green bar in `results/driveindia/generalisation_gap.png`. Read it off before
+> putting a number in the report or abstract.
+
+- Charts: `results/driveindia/` — gap chart, per-class, training curves,
+  confusion matrix, PR/F1 curves
+- Earlier interim model (7 easy classes, Kaggle) scored 0.910 mAP@50 — **not
+  comparable**; more classes and rarer ones lower the mean regardless of quality
 
 ### 2. Full pipeline built and verified end-to-end
 ```
@@ -53,9 +66,8 @@ legal : MV Act s.184
 
 ## 🔨 TO DO — in order
 
-### Immediate (when training finishes, ~tonight)
-1. Check `results/driveindia/` — gap chart, per-class, test mAP
-   → **expect 0.70–0.80**; comparable to DriveIndia's published **78.7%** baseline
+### Immediate
+1. ✅ done — training finished, charts generated
 2. **Verify class names visually** — ids inferred from frequency ordering,
    NOT documented. Confirm `10=auto_rickshaw`, `9=traffic_light`, `0=pedestrian`.
    Ids 24–27 are undocumented in the paper entirely.
@@ -86,6 +98,14 @@ legal : MV Act s.184
 
 **Detection is NOT novel.** YOLO violation detection is heavily published;
 DriveIndia publishes its own 78.7% baseline. Don't argue there.
+
+**Real-world evidence (Kerala, 2023):** the Safe Kerala Project deployed **726
+AI cameras** (KELTRON / Kerala MVD) detecting helmet, triple-riding, seatbelt,
+phone-use, signal and speed violations. It detected **over 1,00,000 violations**
+and issued roughly **3,000 challans** — a ~97% collapse between detection and
+enforcement, attributed to downstream technical failure. **Detection was never
+the bottleneck; enforceability was.** That is exactly the gap EDS addresses, and
+it is the strongest available argument for both Industry Relevance and Innovation.
 
 **The claim:**
 > Existing systems detect violations. SPEC Traffic AI predicts whether the
