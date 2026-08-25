@@ -47,6 +47,16 @@ DEFAULT_CONF = 0.35
 # apply the real thresholds.
 CONF_FLOOR = min([*CLASS_CONF.values(), DEFAULT_CONF])
 
+# Which precision argument this ultralytics version accepts.
+try:
+    from ultralytics.cfg import DEFAULT_CFG_DICT as _CFG
+    if 'quantize' in _CFG:
+        _PRECISION_KWARG, _PRECISION_VALUE = 'quantize', 16   # fp16
+    else:
+        _PRECISION_KWARG, _PRECISION_VALUE = 'half', True
+except Exception:
+    _PRECISION_KWARG, _PRECISION_VALUE = 'half', True
+
 
 class TrafficDetector:
     def __init__(
@@ -109,10 +119,12 @@ class TrafficDetector:
         t0 = time.perf_counter()
         kwargs = dict(imgsz=self.imgsz, device=self.device,
                       conf=CONF_FLOOR, verbose=False)
-        # only pass half when actually enabled -- ultralytics warns on every
-        # call otherwise, which floods the log at 25fps
+        # FP16 inference. Ultralytics 8.4 removed `half` in favour of
+        # `quantize` (16 = fp16, 8 = int8); passing the old name emits a
+        # deprecation warning on EVERY call, which floods the log at 25fps.
+        # Detect which the installed version wants so this works either way.
         if self.half:
-            kwargs['half'] = True
+            kwargs[_PRECISION_KWARG] = _PRECISION_VALUE
         if track:
             raw = self.model.track(frame, persist=True, tracker='bytetrack.yaml', **kwargs)
         else:
