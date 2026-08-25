@@ -251,7 +251,31 @@ def main() -> None:
 
     gpu = torch.cuda.get_device_name(0)
     vram = torch.cuda.get_device_properties(0).total_memory / 1e9
-    print(f'GPU    : {gpu}  ({vram:.1f} GB)')
+
+    # PREFLIGHT -- fail now, not three hours in.
+    # A run that OOMs at epoch 40 costs far more than a check that costs 0.1s.
+    free_gb = None
+    try:
+        free_b, _ = torch.cuda.mem_get_info()
+        free_gb = free_b / 1e9
+    except Exception:
+        pass
+
+    print(f'GPU    : {gpu}  ({vram:.1f} GB total'
+          + (f', {free_gb:.1f} GB free)' if free_gb else ')'))
+
+    if free_gb is not None:
+        need = {2: 2.0, 4: 3.5, 8: 6.0, 16: 11.0}.get(args.batch, 3.5)
+        if free_gb < need:
+            print('')
+            print(f'*** WARNING: {free_gb:.1f} GB free, ~{need:.1f} GB needed '
+                  f'for batch={args.batch}.')
+            print('*** Close Overwolf / Adobe Creative Cloud / Armoury Crate /')
+            print('*** browsers, or drop to --batch 2. Continuing anyway in 10s;')
+            print('*** Ctrl+C to abort.')
+            print('')
+            import time as _t
+            _t.sleep(10)
     print(f'model  : {args.model}   batch={args.batch}  imgsz={args.imgsz}')
 
     if vram < 8 and args.model.startswith(('yolo11m', 'yolo11l', 'yolo11x')) and args.batch > 4:
@@ -291,6 +315,27 @@ def main() -> None:
             name=args.name,
             exist_ok=True,
             resume=args.resume,
+
+            # ---- core ---------------------------------------------------
+            pretrained=True,             # fine-tune from COCO, never from scratch
+            optimizer='auto',            # ultralytics picks AdamW for a set this
+                                         # size; forcing it would also require
+                                         # hand-tuning lr0, so let it decide
+            amp=True,                    # mixed precision -- roughly 2x on Ada
+            nbs=64,                      # nominal batch. With batch=4 this
+                                         # accumulates 16 steps, so the EFFECTIVE
+                                         # batch is 64 -- gradient quality equals
+                                         # batch-64 training. Small `batch` costs
+                                         # throughput, not accuracy.
+            deterministic=False,         # small speedup; we still set seed
+            plots=True,                  # confusion matrix, PR/F1 curves, labels
+
+            # ---- regularisation -----------------------------------------
+            label_smoothing=0.05,        # this dataset HAS label noise (a traffic
+                                         # light annotated as auto_rickshaw turned
+                                         # up in crop inspection). Smoothing stops
+                                         # the model over-committing to bad labels.
+            weight_decay=0.0005,
 
             # ---- schedule ----------------------------------------------
             cos_lr=args.cos_lr,          # cosine decay; better final epochs
