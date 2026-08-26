@@ -54,6 +54,46 @@ disagreeing characters, 60% occluded at the moment of violation."*
 
 Those come apart constantly, and only the second one decides whether a fine sticks.
 
+### Adaptive signal timing — the same detection pass, a second use
+
+A challan punishes a driver after the fact. The same camera can also stop the
+queue forming. From the *same* per-frame detections, `senti/signal/` measures
+how much traffic is standing on each arm of a junction and recommends how the
+green should be split.
+
+- **PCU, not vehicle count.** Forty motorcycles and forty buses are not equal
+  demand; the buses need roughly six times the green. IRC Passenger Car Units
+  are the India-correct measure, and Western systems that count vehicles get
+  this wrong on Indian roads.
+- **Webster's method (1958), not a neural network.** `C = (1.5L + 5)/(1 − Y)`.
+  Four lines of arithmetic, every term with a physical meaning, checkable by
+  hand by the traffic engineer who has to sign it off. The same argument as
+  EDS: a decision that will be questioned has to be explainable.
+- **It says when it cannot help.** Past `Y ≈ 0.9` Webster's cycle runs to
+  infinity — the junction is over capacity and no timing fixes it. The
+  controller stops pretending, caps the cycle and switches to draining the
+  longest queue, and the plan records which mode produced it.
+- **Constraints are not tuning knobs.** `min_green` is a pedestrian's crossing
+  time. `max_green` and a fixed phase order stop a quiet arm being starved.
+  `max_delta_s` makes the plan converge over several cycles rather than lurch,
+  because drivers learn a junction's rhythm.
+
+> **Advisory only.** Nothing in this codebase can actuate a signal head, and
+> there is no code path by which it could. A bad plan does not produce a wrong
+> challan — it produces a collision. The output is a JSONL recommendation log a
+> traffic engineer can audit and a simulator can replay.
+
+```bash
+python scripts/simulate_signal.py --scenario imbalanced
+```
+```
+cycle 1   queues: north=28  south=24  east=4  west=3
+  -> cycle 64s [webster] -> north_south 37s | east_west 13s
+     reason  : north_south has the highest flow ratio (y=0.44 on its critical
+               arm north), so it takes 37s of green against 13s for east_west.
+               It is also carrying 88% of the standing queue.
+```
+
 ---
 
 ## Architecture
@@ -211,6 +251,9 @@ senti/
 ├── evidence/package.py    evidence writer + Evidence Defensibility Score
 ├── rules/base.py          Rule interface, registry, temporal consistency
 ├── rules/wrong_way.py     reference rule
+├── calibration.py         lanes, arms, stop lines, pixel→metre homography
+├── signal/demand.py       PCU queue + flow per junction arm
+├── signal/controller.py   Webster split, safety limits — ADVISORY ONLY
 └── engine.py              wiring
 scripts/                   dataset prep, pruning, local + Colab training
 config/                    per-camera profiles
@@ -226,7 +269,8 @@ config/                    per-camera profiles
 | `triple_riding` | ❌ | none | 🔨 planned |
 | `stop_line_crossing` | ❌ | stop-line polygon | 🔨 planned |
 | `red_light_jump` | ❌ HSV reads the lamp | stop-line polygon | 🔨 planned |
-| `over_speeding` | ❌ | homography | 🔨 planned |
+| `over_speeding` | ❌ | homography | ✅ implemented (screening only) |
+| `lane_discipline` | ❌ | lane polygons + homography | ✅ implemented (advisory) |
 | `no_helmet` | ⚠️ helmet classifier | none | 🔨 planned |
 | seatbelt / phone use | — | — | ❌ camera-hardware problem |
 

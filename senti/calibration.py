@@ -55,6 +55,12 @@ class Lane:
     # per camera rather than inferred from position -- camera angle makes
     # "rightmost in frame" unreliable.
     fast_lane: bool = False
+    # Which ARM of the junction this lane belongs to ("north", "east", ...).
+    # Several lanes share one approach, and a signal phase serves an approach,
+    # never an individual lane -- so congestion has to be measured per approach.
+    # None means the lane is not part of any signalised arm, which is correct
+    # for a highway: adaptive control simply does not apply there.
+    approach: Optional[str] = None
 
     def __post_init__(self):
         self.heading = _unit(self.heading)
@@ -141,7 +147,8 @@ class Calibration:
                  polygon=[tuple(p) for p in l['polygon']],
                  heading=tuple(l.get('heading', [0, -1])),
                  speed_limit_kmph=l.get('speed_limit_kmph'),
-                 fast_lane=bool(l.get('fast_lane', False)))
+                 fast_lane=bool(l.get('fast_lane', False)),
+                 approach=l.get('approach'))
             for i, l in enumerate(cfg.get('lanes', []) or [])
         ]
         stops = [
@@ -161,7 +168,8 @@ class Calibration:
              'polygon': [[int(x), int(y)] for x, y in l.polygon],
              'heading': [round(l.heading[0], 3), round(l.heading[1], 3)],
              **({'speed_limit_kmph': l.speed_limit_kmph} if l.speed_limit_kmph else {}),
-             **({'fast_lane': True} if l.fast_lane else {})}
+             **({'fast_lane': True} if l.fast_lane else {}),
+             **({'approach': l.approach} if l.approach else {})}
             for l in self.lanes
         ]}
         if self.stop_lines:
@@ -194,6 +202,43 @@ class Calibration:
         for lane in self.lanes:
             if lane.contains(pt):
                 return lane
+        return None
+
+    @property
+    def approach_names(self) -> list[str]:
+        """Every declared junction arm, in the order the lanes were drawn."""
+        seen: list[str] = []
+        for lane in self.lanes:
+            if lane.approach and lane.approach not in seen:
+                seen.append(lane.approach)
+        return seen
+
+    def lanes_for_approach(self, approach: str) -> list[Lane]:
+        return [l for l in self.lanes if l.approach == approach]
+
+    def approach_at(self, pt: Point) -> Optional[str]:
+        """Which junction arm this point sits on, or None.
+
+        None again means ABSTAIN -- a vehicle outside every declared lane is
+        not counted toward anybody's demand. Over-counting an arm would hand it
+        green time it never earned, which is worse than ignoring it.
+        """
+        lane = self.lane_at(pt)
+        return lane.approach if lane else None
+
+    def stop_line_for_approach(self, approach: str) -> Optional[StopLine]:
+        """The stop line this arm queues behind.
+
+        Matched by the lane names belonging to the approach; a stop line with
+        no `lanes:` list applies to everything, so it is the fallback.
+        """
+        names = {l.name for l in self.lanes_for_approach(approach)}
+        for s in self.stop_lines:
+            if s.lanes and names & set(s.lanes):
+                return s
+        for s in self.stop_lines:
+            if not s.lanes:
+                return s
         return None
 
     def stop_lines_for(self, lane_name: Optional[str]) -> list[StopLine]:

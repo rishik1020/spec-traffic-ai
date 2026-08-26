@@ -9,10 +9,18 @@ The engine owns no violation logic. Every rule is loaded from the camera's YAML
 profile, which is what makes "bike camera vs junction camera vs highway camera"
 a CONFIGURATION difference rather than three codebases -- one shared perception
 pass, different rules enabled.
+
+The same perception pass also feeds `senti.signal`, which measures congestion
+per junction arm and recommends signal timings. Detection is expensive and runs
+ONCE; enforcement and control are two readers of the same FrameResult. That is
+the whole argument for a shared perception layer -- adding adaptive control
+added no per-frame inference cost at all.
 """
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -26,6 +34,7 @@ from .ingest.source import VideoSource
 from .perception.detector import TrafficDetector, read_signal_state
 # importing the package autoloads and registers every rule module
 from .rules import Rule, Violation, available_rules, get_rule
+from .signal import AdaptiveController, DemandMeter, SignalPlan
 
 
 
@@ -65,6 +74,27 @@ class Engine:
         if not self.rules:
             print(f'[senti] WARNING: no rules enabled. available: {available_rules()}')
 
+        # Adaptive signal timing. Enabled only when the camera profile has a
+        # `signal_control:` block AND the calibration names its lanes' arms --
+        # a highway camera has neither, so the feature simply is not there.
+        sig_cfg = self.config.get('signal_control') or {}
+        self.demand: Optional[DemandMeter] = None
+        self.controller: Optional[AdaptiveController] = None
+        if sig_cfg and sig_cfg is not False:
+            ctrl = AdaptiveController(sig_cfg)
+            if not self.calibration.approach_names:
+                print('[senti] signal_control is configured but no lane declares '
+                      'an `approach:` -- congestion cannot be attributed to an '
+                      'arm, so adaptive timing is OFF.')
+            elif not ctrl.is_configured:
+                print('[senti] signal_control needs at least two phases -- '
+                      'adaptive timing is OFF.')
+            else:
+                self.demand = DemandMeter(self.calibration, sig_cfg)
+                self.controller = ctrl
+        self.plans: list[SignalPlan] = []
+        self.plan_log = Path(evidence_root).parent / 'signal' / f'{self.camera_id}.jsonl'
+
         self.writer = EvidenceWriter(Path(evidence_root), self.camera_id)
         self.buffer: Optional[RollingBuffer] = None
 
@@ -103,6 +133,10 @@ class Engine:
             print('[senti] calibration: NONE -- geometric rules will abstain.')
             print('[senti]   run scripts/calibrate.py to draw lanes for this camera.')
         print(f'[senti] model: {"DriveIndia" if self.detector.indian_model else "COCO fallback"}')
+        if self.controller is not None:
+            print(f'[senti] adaptive signal: {len(self.controller.phases)} phase(s) '
+                  f'over arms {cal.approach_names}, recomputed every '
+                  f'{self.controller.update_every_s:.0f}s -- ADVISORY ONLY')
 
         for idx, ts, frame in src.frames():
             result = self.detector.track(frame, frame_index=idx, timestamp=ts)
@@ -116,6 +150,10 @@ class Engine:
                     hist.append((bx, by, ts))
                     if len(hist) > 30:
                         hist.pop(0)
+
+            if self.demand is not None:
+                self.demand.update(result, ts)
+                self._signal_tick(ts)
 
             context = self._build_context(frame, result)
 
@@ -143,7 +181,37 @@ class Engine:
             cv2.destroyAllWindows()
 
         print(f'\n[senti] done. {len(self.violations)} violation(s) -> {self.writer.root}')
+        if self.plans:
+            print(f'[senti] {len(self.plans)} signal recommendation(s) -> {self.plan_log}')
+            print(f'[senti] last: {self.plans[-1].summary()}')
         return self.violations
+
+    # ---------------------------------------------------------------------
+
+    def _signal_tick(self, ts: float) -> None:
+        """Recompute the recommended timing plan, if one is due.
+
+        Written to a JSONL log rather than acted on. The log IS the deliverable:
+        it lets a traffic engineer replay every recommendation against the
+        demand that produced it, and it is the input a SUMO simulation needs.
+        Nothing here touches a signal head -- see senti/signal/controller.py for
+        why that boundary is deliberate.
+        """
+        plan = self.controller.update(self.demand.read(), ts,
+                                      wall_clock=datetime.now())
+        if plan is None:
+            return
+        self.plans.append(plan)
+
+        self.plan_log.parent.mkdir(parents=True, exist_ok=True)
+        with self.plan_log.open('a', encoding='utf-8') as fh:
+            fh.write(json.dumps(plan.to_dict()) + '\n')
+
+        if plan.changed:
+            print(f'  [~] signal @{ts:6.1f}s  {plan.summary()}')
+            print(f'      {plan.reason}')
+            for c in plan.caveats:
+                print(f'      ! {c}')
 
     # ---------------------------------------------------------------------
 
@@ -253,5 +321,24 @@ class Engine:
                     f'signal {context.get("signal_state")} | '
                     f'violations {len(self.violations)}',
                     (10, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+        if self.demand is not None:
+            # Per-arm queue, drawn on the arm itself. Seeing the number sitting
+            # on the lanes it was measured from is the fastest way to catch a
+            # badly drawn polygon -- a busy arm reading zero is a geometry bug,
+            # not a quiet road.
+            y = 52
+            for arm, d in self.demand.read().items():
+                cv2.putText(canvas,
+                            f'{arm}: queue {d.queue_pcu:5.1f} PCU '
+                            f'({d.queue_count}) | flow {d.flow_pcu_hr:5.0f} PCU/hr'
+                            + ('  [TRUNCATED]' if d.truncated else ''),
+                            (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                            (0, 200, 255) if d.truncated else (0, 255, 180), 1)
+                y += 20
+            if self.plans:
+                cv2.putText(canvas, self.plans[-1].summary(), (10, y),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 220, 0), 1)
+
         cv2.imshow('SPEC Traffic AI', canvas)
         cv2.waitKey(1)
