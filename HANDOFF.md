@@ -81,39 +81,40 @@ Scripts: `prepare_driveindia.py`, `prune_classes.py`, `train_local.py`, `train_c
  M senti/ingest/source.py          YouTube resolution via yt-dlp
 ?? scripts/test_stream.py          stream tester + subnet scan
 ?? scripts/triage_videos.py        rank videos by demo suitability
-?? scripts/calibrate.py            interactive calibration tool
-?? senti/calibration.py            Lane / StopLine / Homography model
 ?? results/driveindia/kolkata_annotated.jpg
 ```
 
 **The user asked to hold back the live-stream files** (`source.py`, `test_stream.py`) while
-still iterating. The calibration files are simply newer than the last commit. Confirm before
-committing any of these.
+still iterating. Calibration work is now committed (`de94a68`).
 
 ---
 
-## 4. THE CRITICAL OPEN ITEM
+## 4. CALIBRATION — DONE ✅
 
-**`senti/calibration.py` is written but no rule uses it.** `wrong_way` still reads a single
-global `allowed_heading` from config.
+`senti/calibration.py` is now wired into `wrong_way`. Committed in `de94a68`.
 
-Why it matters: a live test on a two-way road produced **8 false positives** — vehicles
-travelling legally were flagged, because one direction per camera cannot describe a road
-where traffic moves both ways. **No value of that setting fixes it.**
+- `Engine` builds `Calibration.from_dict(config['calibration'])` once and passes
+  it to every rule via `context['calibration']`
+- `wrong_way` looks up the lane containing `det.bottom_center` and compares
+  against **that lane's** heading
+- **Abstains** outside every declared lane, and on cameras with no calibration
+  (`fallback_heading` is opt-in only — guessing is what caused the original bug)
+- Emits `margin_norm` scaled between the 70-degree threshold and a full
+  reversal, so EDS reflects how unambiguous the breach was
 
-The fix, roughly 20–30 min:
-1. `Engine` builds `Calibration.from_dict(config['calibration'])`, passes it in `context`
-2. `wrong_way.evaluate()` calls `cal.lane_at(det.bottom_center)`
-3. If no lane → **return None (abstain)**, never a violation
-4. Compare heading against **that lane's** heading, not a global one
+Verified: two legal vehicles on a two-way road → **0 violations (was 8)**;
+genuine reversal → 1, correctly attributed to its lane; outside all lanes →
+abstain; no calibration → abstain.
 
-`lane_at()` returning `None` outside every declared lane is deliberate: uncalibrated regions
-must produce no verdict. Silence is cheap; a wrongful challan is not.
+To calibrate a camera:
+```bash
+python scripts/calibrate.py --source data/videos/kolkata.mp4 --config config/cam_demo.yaml
+```
+`L` = lane mode, click corners, `D` to close, then click once in the direction
+traffic flows. `S` = stop line, `H` = homography, `W` = write.
 
-Once done, `stop_line_crossing` is nearly free — `StopLine.crossed(prev, curr)` is a sign
-change of a 2D cross product, no thresholds needed.
-
----
+**`stop_line_crossing` is now nearly free** — `StopLine.crossed(prev, curr)` is a
+sign change of a 2D cross product, no thresholds needed.
 
 ## 5. KEY TECHNICAL FINDINGS
 
@@ -234,7 +235,7 @@ on a ledge is fine — mounted, not handheld, or all calibration assumptions bre
 
 ## 11. NEXT ACTIONS, IN ORDER
 
-1. **Wire calibration into `wrong_way`** (see §4) — fixes the false positives
+1. ~~Wire calibration into `wrong_way`~~ ✅ **DONE** (see §4)
 2. Set `imgsz: 1280` in `config/cam_demo.yaml`
 3. Raise `'bus'` threshold in `detector.py` 0.45 → 0.65 (over-fires on large objects)
 4. `triple_riding` rule — `riders_on()` already exists, needs no calibration
