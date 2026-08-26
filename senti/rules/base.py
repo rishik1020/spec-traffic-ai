@@ -106,7 +106,7 @@ class Rule:
 
         self._streak: dict[int, int] = defaultdict(int)
         self._last_fired: dict[int, int] = {}
-        self._history: dict[int, list[tuple[float, float]]] = defaultdict(list)
+        self._history: dict[int, list[tuple[float, float, float]]] = defaultdict(list)
 
     # -- to implement ------------------------------------------------------
 
@@ -140,7 +140,12 @@ class Rule:
             seen.add(tid)
 
             if self.stateful:
-                self._history[tid].append(det.bottom_center)
+                # (x, y, t) -- the timestamp is what makes speed computable.
+                # bottom_center is the tyre contact point, the only part of the
+                # box that lies on the road plane and so the only valid input
+                # to a homography.
+                bx, by = det.bottom_center
+                self._history[tid].append((bx, by, result.timestamp))
                 if len(self._history[tid]) > 120:
                     self._history[tid].pop(0)
 
@@ -205,6 +210,47 @@ class Rule:
         if mag < 1e-6:
             return None
         return (dx / mag, dy / mag)
+
+    def speed_kmph(self, track_id: int, homography, window: int = 12,
+                   min_points: int = 6) -> Optional[float]:
+        """Ground speed in km/h, or None if it cannot be measured honestly.
+
+        Uses the homography to convert pixel motion into metres on the road
+        plane, over a window rather than frame-to-frame: single-frame deltas are
+        dominated by box jitter, which at 25fps turns a few pixels of noise into
+        tens of km/h.
+
+        Returns None -- never a guess -- when there is no homography, too little
+        history, no elapsed time, or an implausible result. A speed the system
+        cannot stand behind is worse than no speed at all.
+
+        NOTE: this is a SCREENING signal. Legal speed enforcement in India
+        requires radar or LIDAR. Point-to-point average speed between two
+        calibrated lines is camera-only and defensible; this is not.
+        """
+        if homography is None:
+            return None
+        pts = self._history.get(track_id, [])
+        if len(pts) < min_points:
+            return None
+
+        recent = pts[-window:]
+        dt = recent[-1][2] - recent[0][2]
+        if dt <= 1e-3:
+            return None
+
+        try:
+            metres = homography.distance_m((recent[0][0], recent[0][1]),
+                                           (recent[-1][0], recent[-1][1]))
+        except Exception:
+            return None
+
+        kmph = (metres / dt) * 3.6
+        # reject nonsense from an ID switch or a bad calibration rather than
+        # reporting 400 km/h with a straight face
+        if not (0.0 <= kmph <= 250.0):
+            return None
+        return kmph
 
     def displacement(self, track_id: int, lookback: int = 15) -> float:
         pts = self._history.get(track_id, [])

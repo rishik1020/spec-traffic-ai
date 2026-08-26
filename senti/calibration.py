@@ -51,6 +51,10 @@ class Lane:
     polygon: list[Point]
     heading: tuple[float, float]
     speed_limit_kmph: Optional[float] = None
+    # India drives on the left, so the fast lane is the RIGHTMOST one. Declared
+    # per camera rather than inferred from position -- camera angle makes
+    # "rightmost in frame" unreliable.
+    fast_lane: bool = False
 
     def __post_init__(self):
         self.heading = _unit(self.heading)
@@ -136,7 +140,8 @@ class Calibration:
             Lane(name=l.get('name', f'lane{i}'),
                  polygon=[tuple(p) for p in l['polygon']],
                  heading=tuple(l.get('heading', [0, -1])),
-                 speed_limit_kmph=l.get('speed_limit_kmph'))
+                 speed_limit_kmph=l.get('speed_limit_kmph'),
+                 fast_lane=bool(l.get('fast_lane', False)))
             for i, l in enumerate(cfg.get('lanes', []) or [])
         ]
         stops = [
@@ -155,7 +160,8 @@ class Calibration:
             {'name': l.name,
              'polygon': [[int(x), int(y)] for x, y in l.polygon],
              'heading': [round(l.heading[0], 3), round(l.heading[1], 3)],
-             **({'speed_limit_kmph': l.speed_limit_kmph} if l.speed_limit_kmph else {})}
+             **({'speed_limit_kmph': l.speed_limit_kmph} if l.speed_limit_kmph else {}),
+             **({'fast_lane': True} if l.fast_lane else {})}
             for l in self.lanes
         ]}
         if self.stop_lines:

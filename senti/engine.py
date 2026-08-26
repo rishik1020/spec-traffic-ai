@@ -69,6 +69,10 @@ class Engine:
         self.buffer: Optional[RollingBuffer] = None
 
         self._track_frames: dict[int, int] = {}
+        # (x, y, t) per track, for the on-screen speed readout only.
+        # Rules keep their own history; this exists so the preview can show
+        # speed without reaching into a rule's internals.
+        self._track_pos: dict[int, list] = {}
         self._pending: dict[str, dict] = {}
         self.violations: list[Violation] = []
 
@@ -107,6 +111,11 @@ class Engine:
             for d in result.detections:
                 if d.track_id is not None:
                     self._track_frames[d.track_id] = self._track_frames.get(d.track_id, 0) + 1
+                    hist = self._track_pos.setdefault(d.track_id, [])
+                    bx, by = d.bottom_center
+                    hist.append((bx, by, ts))
+                    if len(hist) > 30:
+                        hist.pop(0)
 
             context = self._build_context(frame, result)
 
@@ -197,6 +206,29 @@ class Engine:
 
     # ---------------------------------------------------------------------
 
+    def _speed_kmph(self, track_id, window: int = 12):
+        """Display-only speed. Returns None when it cannot be measured."""
+        hom = getattr(self.calibration, 'homography', None)
+        pts = self._track_pos.get(track_id, [])
+        if hom is None or len(pts) < 6:
+            return None
+        recent = pts[-window:]
+        dt = recent[-1][2] - recent[0][2]
+        if dt <= 1e-3:
+            return None
+        try:
+            m = hom.distance_m((recent[0][0], recent[0][1]),
+                               (recent[-1][0], recent[-1][1]))
+        except Exception:
+            return None
+        v = (m / dt) * 3.6
+        return v if 0.0 <= v <= 250.0 else None
+
+    def _label(self, d) -> str:
+        base = f'{d.cls_name} #{d.track_id}'
+        v = self._speed_kmph(d.track_id) if d.track_id is not None else None
+        return f'{base} {v:.0f} km/h' if v is not None else f'{base} {d.confidence:.2f}'
+
     def _preview(self, frame, result: FrameResult, context: dict) -> None:
         import cv2
         import numpy as np
@@ -212,8 +244,7 @@ class Engine:
                 tracker_id=np.array([d.track_id if d.track_id is not None else -1
                                      for d in result.detections]),
             )
-            labels = [f'{d.cls_name} #{d.track_id} {d.confidence:.2f}'
-                      for d in result.detections]
+            labels = [self._label(d) for d in result.detections]
             canvas = sv.BoxAnnotator().annotate(frame.copy(), dets)
             canvas = sv.LabelAnnotator(text_scale=0.4).annotate(canvas, dets, labels)
 
