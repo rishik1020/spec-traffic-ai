@@ -8,7 +8,11 @@ Draw a camera's geometry on a real frame, and write it into the YAML.
 CONTROLS
     L      lane mode      -- click 3+ corners of a lane, then D to close it.
                              You are then asked to click ONE arrow point showing
-                             the direction traffic is permitted to travel.
+                             the direction traffic is permitted to travel, and
+                             to type which ARM of the junction the lane feeds
+                             (north/south/east/west). The arm is what adaptive
+                             signal timing measures congestion against; leave it
+                             blank on a highway, where there is nothing to time.
     S      stop-line mode -- click 2 points.
     H      homography     -- click 4 road-surface points, then type their real
                              world metre coordinates in the terminal.
@@ -67,6 +71,17 @@ class Calibrator:
             dx, dy = x - cx, y - cy
             mag = (dx * dx + dy * dy) ** .5 or 1
             lane['heading'] = [round(dx / mag, 3), round(dy / mag, 3)]
+            # Which ARM of the junction this lane feeds. Adaptive signal timing
+            # measures congestion per arm, so a lane with no arm contributes to
+            # nobody's demand. Blank is correct on a highway -- there is no
+            # junction to time.
+            try:
+                arm = input("  which approach/arm is this lane? "
+                            "(north/south/east/west, blank = none): ").strip()
+            except EOFError:
+                arm = ''
+            if arm:
+                lane['approach'] = arm
             self.lanes.append(lane)
             self.awaiting_heading = None
             self.msg = f"lane '{lane['name']}' heading {lane['heading']}"
@@ -145,7 +160,8 @@ class Calibrator:
             hx, hy = l['heading']
             cv2.arrowedLine(img, (cx, cy), (int(cx + hx * 70), int(cy + hy * 70)),
                             (0, 255, 255), 3, tipLength=.35)
-            cv2.putText(img, l['name'], (cx - 20, cy - 12),
+            label = l['name'] + (f" [{l['approach']}]" if l.get('approach') else '')
+            cv2.putText(img, label, (cx - 20, cy - 12),
                         cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 255, 0), 2)
 
         cv2.addWeighted(overlay, .25, img, .75, 0, img)
@@ -180,7 +196,9 @@ class Calibrator:
     def to_calibration(self) -> dict:
         d: dict = {'lanes': [{'name': l['name'],
                               'polygon': [[int(x), int(y)] for x, y in l['polygon']],
-                              'heading': l['heading']} for l in self.lanes]}
+                              'heading': l['heading'],
+                              **({'approach': l['approach']} if l.get('approach') else {})}
+                             for l in self.lanes]}
         if self.stops:
             d['stop_lines'] = [{'name': s['name'],
                                 'line': [[int(x), int(y)] for x, y in s['line']]}

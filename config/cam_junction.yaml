@@ -1,0 +1,182 @@
+# SPEC Traffic AI -- signalised junction profile
+#
+# This camera does two jobs from ONE detection pass: it enforces (wrong-way
+# today, red-light and stop-line once the signal head is in frame) and it
+# measures congestion per arm to recommend signal timings.
+#
+# BEFORE USING THIS, RUN THE CALIBRATION TOOL:
+#   python scripts/calibrate.py --source data/videos/junction.mp4 --config config/cam_junction.yaml
+#
+#   L  draw each lane, then click the direction traffic flows. You are then
+#      asked which ARM the lane belongs to -- type north / south / east / west
+#      (or whatever you call them). Lanes sharing an arm share a name.
+#   S  draw the stop line for each arm.
+#   H  four road-surface points and their real metres -- optional, but without
+#      it queue LENGTH is unavailable and "stopped" falls back to the
+#      scale-free ratio test.
+#   W  write.
+#
+# WITHOUT `approach:` ON THE LANES, ADAPTIVE TIMING STAYS OFF. Congestion has
+# to be attributable to an arm before it can be turned into green time.
+
+camera_id: junction01
+location: "<junction name>, Hyderabad"
+
+weights: runs/driveindia/weights/best.pt
+imgsz: 1280
+stride: 1
+
+evidence:
+  pre_seconds: 5.0
+  post_seconds: 3.0
+  downscale: 0.5
+
+# ---------------------------------------------------------------------------
+# CALIBRATION -- overwritten by scripts/calibrate.py. Shown as a worked example
+# so the shape is clear before you draw your own. Two arms are enough to
+# demonstrate adaptive timing; a camera rarely sees all four.
+# ---------------------------------------------------------------------------
+# calibration:
+#   lanes:
+#     - name: lane1
+#       polygon: [[240, 640], [560, 640], [610, 1040], [180, 1040]]
+#       heading: [0, -1]            # image coords: y increases DOWNWARD
+#       approach: north             # <-- the arm this lane feeds
+#     - name: lane2
+#       polygon: [[570, 640], [880, 640], [960, 1040], [620, 1040]]
+#       heading: [0, -1]
+#       approach: north             # same arm, second lane
+#     - name: lane3
+#       polygon: [[980, 500], [1500, 520], [1520, 760], [1000, 730]]
+#       heading: [-1, 0]
+#       approach: east
+#   stop_lines:
+#     - name: stop_north
+#       line: [[180, 640], [880, 640]]
+#       lanes: [lane1, lane2]       # which lanes queue behind it
+#     - name: stop_east
+#       line: [[980, 500], [1000, 730]]
+#       lanes: [lane3]
+#   homography:
+#     src:   [[180, 1040], [960, 1040], [880, 640], [240, 640]]
+#     dst_m: [[0, 0], [7.0, 0], [7.0, 30], [0, 30]]     # 2 lanes x 3.5m, 30m
+
+# ---------------------------------------------------------------------------
+# ADAPTIVE SIGNAL TIMING
+#
+# ADVISORY ONLY. This block produces a recommended plan and writes it to
+# data/signal/<camera_id>.jsonl. Nothing in this codebase can actuate a signal
+# head, and that is deliberate: a wrong plan does not produce a wrong challan,
+# it produces a collision. Deployment means handing the plan to the junction's
+# existing controller with a traffic engineer signing off.
+# ---------------------------------------------------------------------------
+signal_control:
+
+  # Which arms move together. Opposing arms normally share a phase, and the
+  # phase is sized by its BUSIEST arm -- averaging would under-serve it every
+  # cycle. The ORDER here is the order on the ground and never changes; only
+  # the durations adapt, because a driver facing an unexpected green is a
+  # crash, not an optimisation.
+  phases:
+    - name: north_south
+      approaches: [north, south]
+    - name: east_west
+      approaches: [east, west]
+
+  # -------------------------------------------------------------------------
+  # WHEN TO ADAPT
+  # Clock windows are what a traffic department already thinks in. The demand
+  # trigger is what actually matters, because a jam does not check the time --
+  # whichever fires first wins. Comment BOTH out to adapt unconditionally.
+  # -------------------------------------------------------------------------
+  peak_windows: ["08:00-11:00", "17:00-21:30"]
+  demand_trigger_pcu: 25.0   # total PCU visible across all arms
+
+  # -------------------------------------------------------------------------
+  # MEASUREMENT
+  # -------------------------------------------------------------------------
+  stopped_kmph: 5.0          # queued below walking pace. Creeping in a jam IS
+                             # congestion; this is not "not moving at all".
+  stopped_ratio: 0.15        # no-homography fallback: fraction of the vehicle's
+                             # OWN box height per second. Scale-free, so it
+                             # works on distant and near traffic alike.
+  stopped_window_frames: 10
+  flow_window_s: 120.0       # long enough to span a whole cycle, so the answer
+                             # does not swing with the phase
+  min_observation_s: 60.0    # before this much has been watched there is no
+                             # flow RATE, only a few arrivals. The controller
+                             # holds the existing fixed plan and says so rather
+                             # than extrapolating ten seconds of traffic to an
+                             # hour -- which the first test clip did, producing
+                             # an arithmetically correct and entirely
+                             # meaningless flow ratio of 5.67.
+  truncation_ratio: 0.9      # queue tail this far along the zone -> assume the
+                             # real queue continues out of view, and say so
+
+  # Saturation flow: PCU/hr an arm discharges while it has green. IRC puts a
+  # straight-through urban lane near 1800; narrow lanes, parked vehicles and
+  # heavy turning movements all pull it down. MEASURE it at the real junction
+  # -- this is the number most worth not guessing.
+  saturation_flow_pcu_hr:
+    north: 3400              # two lanes
+    south: 3400
+    east: 1700               # one lane
+    west: 1700
+  saturation_flow_default: 1800
+
+  # -------------------------------------------------------------------------
+  # SAFETY LIMITS -- these are not tuning knobs
+  # -------------------------------------------------------------------------
+  intergreen_s: 5.0          # amber + all-red. Nobody moves; it is pure loss.
+  startup_lost_s: 2.0        # the front of the queue getting going after green
+
+  # min_green exists so a pedestrian who stepped off the kerb reaches the far
+  # side. Set it from the crossing width at ~1.2 m/s walking speed, per arm --
+  # a 14 m crossing needs ~12s of walking plus clearance. Never trim it to make
+  # a cycle tidy.
+  min_green_s:
+    north_south: 15.0
+    east_west: 12.0
+  min_green_default: 12.0
+
+  max_green_s: 60.0          # a busy arm may not starve the others
+  min_cycle_s: 40.0
+  max_cycle_s: 120.0         # IRC practice for an urban junction
+  max_practical_y: 0.90      # above this Webster returns nonsense -- switch to
+                             # draining the longest queue instead
+  max_delta_s: 10.0          # no phase moves more than this per update, so the
+                             # plan converges over a few cycles rather than
+                             # lurching. Drivers learn a junction's rhythm.
+
+  update_every_s: 60.0       # recompute roughly once a cycle
+
+  # Serving one arm TWICE per cycle halves the wait for vehicles arriving just
+  # after it turns red, and it is what "pass that side more often" really
+  # means. It costs an extra intergreen every cycle -- 5s of pure lost time --
+  # and changes the rhythm, so it is off unless the imbalance is severe.
+  allow_reservice: false
+  reservice_ratio: 2.5       # busiest phase queue vs the next busiest
+
+  # Off-peak fallback: the junction's EXISTING fixed plan. The log has to say
+  # what should be running at every moment, and "leave it alone" is an answer.
+  baseline_greens_s:
+    north_south: 30.0
+    east_west: 25.0
+
+# ---------------------------------------------------------------------------
+# ENFORCEMENT -- the same detection pass, a different consumer
+# ---------------------------------------------------------------------------
+rules:
+
+  wrong_way:
+    tolerance_deg: 70
+    min_displacement: 40
+    min_frames: 8
+    cooldown_frames: 200
+
+  # Enable once the signal head is in frame and read_signal_state() has been
+  # checked against it:
+  # red_light_jump:
+  #   min_frames: 3
+  # stop_line_crossing:
+  #   min_frames: 3

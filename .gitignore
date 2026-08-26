@@ -11,5 +11,6 @@ venv/
 # runtime output
 data/evidence/
 data/videos/
+data/signal/          # recommended signal plans -- generated, per-run
 *.log
 train.log

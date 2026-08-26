@@ -1,6 +1,6 @@
 # SPEC Traffic AI — Status
 
-*Last updated: 30 July 2026*
+*Last updated: 26 August 2026*
 
 An AI-powered traffic violation detection and enforcement platform for Indian
 road conditions, with human-in-the-loop e-challan verification.
@@ -59,7 +59,43 @@ EDS   : 66.6/100 → review | weakest=rule_margin
 legal : MV Act s.184
 ```
 
-### 3. Documents
+### 3. Adaptive signal timing — BUILT ✅ (advisory)
+
+`senti/signal/` turns the SAME per-frame detections into a recommended green
+split. Detection is the expensive step and it already runs; enforcement and
+control are two readers of one `FrameResult`, so this cost nothing per frame.
+
+| File | Purpose |
+|---|---|
+| `senti/signal/demand.py` | PCU queue + arrival flow per junction arm |
+| `senti/signal/controller.py` | Webster cycle + split, safety limits, peak gating |
+| `scripts/simulate_signal.py` | scripted-demand harness — checks the arithmetic without junction footage |
+| `config/cam_junction.yaml` | worked junction profile |
+
+- **`approach:` on each lane** is the new calibration field. Without it,
+  congestion cannot be attributed to an arm and the feature stays OFF.
+- **PCU, not counts** — IRC factors. 40 motorcycles ≠ 40 buses.
+- **Webster** `C = (1.5L + 5)/(1 − Y)`; past `Y ≈ 0.9` it switches to draining
+  the longest queue and SAYS SO, rather than returning an infinite cycle.
+- **`min_green` is a pedestrian's crossing time**, `max_green` + fixed phase
+  order prevent starvation, `max_delta_s` makes the plan converge instead of
+  lurch. These are safety limits, not tuning knobs.
+- **Warm-up guard** — found by the first live test: extrapolating 6 s of
+  arrivals to an hour gave `Y = 5.67`, arithmetically correct and meaningless.
+  Below `min_observation_s` the controller recommends the EXISTING fixed plan
+  and says it is still measuring.
+- **ADVISORY ONLY** — writes `data/signal/<camera>.jsonl`, actuates nothing.
+
+Verified behaviours (`python scripts/simulate_signal.py`):
+
+| Scenario | Expected | Result |
+|---|---|---|
+| imbalanced | green follows the queue, converges 10s/cycle | 37 → 47 → 57s ✅ |
+| balanced queues | equal queues ≠ equal demand on unequal arms | single-lane arm wins ✅ |
+| oversaturated | refuse Webster, drain longest queue, flag it | mode switch ✅ |
+| one arm empty | STILL served every cycle | 12s minimum held ✅ |
+
+### 4. Documents
 - Abstract (191 words), PPT content, 8 verified research papers → `DATASETS.md`
 
 ---
@@ -84,8 +120,13 @@ legal : MV Act s.184
 6. `triple_riding` rule — `riders_on()` already exists, no calibration needed
 7. `stop_line_crossing` — first user of supervision's `LineZone`
 8. `red_light_jump` — `read_signal_state()` already exists
-9. `over_speeding` — homography, **screening signal only, never legal evidence**
+9. ✅ done — `over_speeding` (screening only) and `lane_discipline` (advisory)
 10. `no_helmet` — the ONLY rule needing another model (~1hr Colab, Roboflow)
+11. **Record a signalised junction** with two arms and the signal head in frame
+    — the one thing blocking a live demo of adaptive timing. Until then
+    `scripts/simulate_signal.py` exercises the same controller.
+12. **Measure saturation flow** at the real junction rather than using the
+    ~1800 PCU/hr table value. It is the number the whole split rests on.
 
 ### Phase 4
 11. **Officer review portal** — queue → clip + reason trace + EDS → approve/reject
@@ -132,7 +173,7 @@ Nobody in this literature does the second.
 decisions (~200 packages), report ROC/AUC. If EDS predicts human rejection,
 you've proven a machine can anticipate why enforcement evidence fails.
 
-**Secondary novelty:** violations as a *control signal*, not just a fine —
+**Secondary novelty — NOW IMPLEMENTED:** violations as a *control signal*, not just a fine —
 e.g. "87% of red-light violations occur within 1.5s of phase change → extend
 amber 3s→4s". PCU-weighted demand (IRC factors) is the India-correct way to
 measure it; Western systems count vehicles, which treats 40 motorcycles and
@@ -145,7 +186,9 @@ measure it; Western systems count vehicles, which treats 40 motorcycles and
 | Constraint | Why |
 |---|---|
 | Vision speed is **screening only** | Legal speed needs radar/LIDAR. Point-to-point average speed IS defensible and camera-only. |
-| **Cannot actuate real signals** | Safety-critical hardware. Deliverable = recommendation + SUMO simulation. |
+| **Cannot actuate real signals** | Safety-critical hardware. Deliverable = recommendation + SUMO simulation. `senti/signal/` has no actuation path by design. |
+| Queue counts saturate under occlusion | A bus hides the vehicles behind it. Readings whose tail reaches the edge of the drawn zone are flagged `truncated` — a floor, not a total. |
+| One camera rarely sees all four arms | Real deployments use one camera per approach. The controller takes demand keyed by arm, so multi-camera aggregation is a merge, not a redesign. |
 | ANPR 70–85%, not 98% | Night glare, dust, damaged plates, two-wheeler occlusion. |
 | 8 of 28 classes unusable | `ambulance`/`animal`/`police_vehicle` = 0 boxes. Report mAP over the ~14 viable classes alongside the all-class figure. |
 | DriveIndia = academic use only | Fine for capstone; matters if productised. |
