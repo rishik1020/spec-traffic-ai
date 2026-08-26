@@ -21,6 +21,49 @@ from typing import Iterator, Optional, Union
 import cv2
 
 
+def resolve_source(source):
+    """Turn a convenient source string into something OpenCV can open.
+
+    YouTube live traffic cameras are a good stand-in for municipal CCTV -- they
+    are genuinely live, genuinely traffic, and published for public viewing. But
+    a YouTube page URL is not a video stream; yt-dlp has to resolve it to an HLS
+    manifest first, and those manifests are ~1500 chars and expire after a few
+    hours. Resolving here means callers can just pass the watch URL.
+
+    Anything that is not a YouTube link passes straight through untouched.
+    """
+    if not isinstance(source, str):
+        return source
+    if 'youtube.com' not in source and 'youtu.be' not in source:
+        return source
+
+    try:
+        from yt_dlp import YoutubeDL
+    except ImportError:
+        raise RuntimeError('YouTube source needs yt-dlp:  pip install yt-dlp')
+
+    print('[senti] resolving YouTube stream via yt-dlp ...')
+    opts = {'quiet': True, 'no_warnings': True, 'format': 'best[height<=720]/best'}
+    with YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(source, download=False)
+
+    url = info.get('url')
+    if not url:
+        fmts = [f for f in info.get('formats', []) if f.get('url')]
+        if not fmts:
+            raise RuntimeError('yt-dlp returned no playable stream')
+        url = fmts[-1]['url']
+
+    live = ' (LIVE)' if info.get('is_live') else ''
+    # YouTube titles routinely contain emoji, and a Windows cp1252 console
+    # raises UnicodeEncodeError trying to print them -- which would kill the
+    # run before a single frame is read. Strip to ASCII for display only.
+    title = str(info.get('title', '?'))[:70]
+    title = title.encode('ascii', 'replace').decode('ascii')
+    print(f'[senti] {title}{live}')
+    return url
+
+
 @dataclass
 class StreamInfo:
     width: int
@@ -63,6 +106,7 @@ class VideoSource:
     # -- lifecycle ---------------------------------------------------------
 
     def open(self) -> StreamInfo:
+        self.source = resolve_source(self.source)
         cap = cv2.VideoCapture(self.source)
         if not cap.isOpened():
             raise RuntimeError(f'could not open video source: {self.source!r}')
