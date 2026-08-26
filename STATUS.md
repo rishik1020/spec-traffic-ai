@@ -101,9 +101,8 @@ DriveIndia publishes its own 78.7% baseline. Don't argue there.
 
 **Real-world evidence (Kerala, 2023):** the Safe Kerala Project deployed **726
 AI cameras** (KELTRON / Kerala MVD) detecting helmet, triple-riding, seatbelt,
-phone-use, signal and speed violations. It detected **over 1,00,000 violations**
-and issued roughly **3,000 challans** — a ~97% collapse between detection and
-enforcement, attributed to downstream technical failure. **Detection was never
+phone-use, signal and speed violations. It detected **66.41 lakh violations** and issued **64.72 lakh challans** worth
+**Rs 428.4 cr**, of which only **Rs 76.7 cr (18%)** was collected. **Detection was never
 the bottleneck; enforceability was.** That is exactly the gap EDS addresses, and
 it is the strongest available argument for both Industry Relevance and Innovation.
 
