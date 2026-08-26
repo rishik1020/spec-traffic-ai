@@ -1,6 +1,7 @@
 # SPEC Traffic AI — Review-II Talk Track
 
 *Thursday 27 August 2026 · panel of two, one is your mentor*
+*Deck: `docs/SPEC Traffic AI - Evaluation 2 FINAL.pptx` — **20 slides***
 
 ---
 
@@ -16,69 +17,94 @@ If you remember nothing else, remember those. Everything else you can read off a
 
 ---
 
-## SLIDE-BY-SLIDE (~45 sec each, ~11 min total)
+## SLIDE-BY-SLIDE (~35–40 sec each, ~13 min total)
 
 ### 1 · Title
-Name the project and the one-line claim.
 > *"SPEC Traffic AI — traffic violation detection built for Indian road conditions, where every detection is checked for whether it could actually be enforced."*
 
 ### 2 · Recap
 > *"Evaluation 1 was a proposal. Since then we've trained the detector and implemented the full pipeline end to end — it runs on real footage today."*
 
-Keep it to two sentences. Don't re-present Eval-1.
+Two sentences. Don't re-present Eval-1.
 
-### 3 · Objectives
-Three points. Land the first one hard:
-> *"COCO-trained detectors have no auto-rickshaw class at all. They are structurally incapable of enforcing against a large share of Indian traffic. That's why we needed Indian training data."*
+### 3 · Literature Review ⭐ *(the comparison table)*
+Don't read the table. Walk the **last column** — that is the whole argument.
+> *"Five representative works. Detection on Indian roads is close to solved — DriveIndia publishes 78.7%. End-to-end enforcement pipelines already exist. And automated enforcement genuinely works: the Cochrane review of thirty-five studies puts crash reductions between eight and forty-nine percent. But look at the right-hand column. Every one of them stops at 'did we detect it'. Not one asks whether the resulting challan would survive being contested."*
 
-### 4 · What We Built
-Don't read the paragraph. Walk the pipeline out loud:
-> *"Video comes in from a file or a live camera through one interface. The detector finds 21 Indian classes. ByteTrack gives each vehicle an identity. The rule engine judges violations. A rolling buffer cuts the evidence clip. Everything is on GitHub."*
+Footer line if they want the India case: *"Overspeeding is in 68.4% of Indian accidents, and 54,568 people died without a helmet in 2023."*
 
-### 5 · How It Works
-Point at the four stages. One line each. Then the design claim:
-> *"One shared perception pass, many independent rules. Adding a violation is one file; deploying to a new camera is one config file — not a new codebase."*
+### 4 · Where It Breaks Down ⭐
+This is the failure evidence. Deliver it as six facts, no commentary.
+> *"Bengaluru's AI helmet detection is 75 to 80 percent raw — it reaches 99.9 only because every fine is revalidated by hand. Kerala issued four hundred and twenty-eight crore in challans and collected seventy-six. Ren reports ninety-eight percent accuracy with no held-out split and no field deployment at all. BMD-45 shows a detector at 83.8 percent in-domain collapsing to 33.6 on real Indian CCTV. ANPR misreads 28.5 percent of plates in field conditions. And without a Section 65B certificate, none of the footage is admissible in the first place."*
 
-### 6 · Results ⭐
-**Slow down here.** This is 25% of your marks.
-> *"0.703 across all 21 classes on the held-out test split — data the model never saw during training or model selection. Three classes had under 100 examples and couldn't be learned; over the 18 that were adequately supported it's 0.800. Over the seven classes we actually enforce on, 0.868."*
+### 5 · Research Gap
+Three numbered points. The third is the one that matters — admissibility never enters the CV pipeline.
 
-Then: *"DriveIndia's own published baseline is 78.7% on the full 67,000-image dataset. We used 12,000 images on a 6 GB laptop GPU."*
+### 6 · Objectives
+Land the first one hard:
+> *"COCO-trained detectors have no auto-rickshaw class at all. They are structurally incapable of enforcing against a large share of Indian traffic."*
 
-### 7 · Generalisation Gap ⭐
+### 7 · What We Built
+Don't read it. Walk the pipeline out loud, and end on the last bullet:
+> *"…and the same detection pass now also drives signal timing. I'll come back to that."*
+
+### 8 · How It Works
+Four stages, one line each. Then the design claim:
+> *"One shared perception pass, many independent consumers. Adding a violation is one file; deploying to a new camera is one config file."*
+
+### 9 · Results ⭐
+**Slow down. This is 25% of your marks.**
+> *"0.703 across all 21 classes on the held-out test split — data the model never saw during training or model selection. Three classes had under 100 examples and couldn't be learned; over the 18 adequately supported it's 0.800. Over the seven classes we actually enforce on, 0.868."*
+
+Then: *"DriveIndia's own baseline is 78.7% on the full 67,000-image dataset. We used 12,000 images on a 6 GB laptop GPU."*
+
+### 10 · Generalisation Gap ⭐
 > *"Same weights, three splits. Validation and test agree almost exactly, which tells us the split is representative. Most published work in this area reports training accuracy — the blue bar. We report the green one."*
 
 That sentence is your Methodology marks. Say it clearly.
 
-### 8 · Per-Class Accuracy
-Two things:
+### 11 · Per-Class Accuracy
 > *"Auto-rickshaw is at 0.888 — above our overall mean. That's the whole justification for using an Indian dataset."*
 
-> *"And the interesting one: a speed bump learned from 124 examples scores higher than a commercial vehicle with 4,280. Visual distinctiveness matters more than sample count."*
+> *"And the interesting one: a speed bump learned from 124 examples beats a commercial vehicle with 4,280. Visual distinctiveness matters more than sample count."*
 
-### 9 · Challenges
-Deliver this as a **finding**, not an apology:
-> *"Testing on real footage exposed a viewpoint gap. DriveIndia is dashcam footage from autonomous-driving research. Enforcement cameras look down from above. From above, a car roof and a bus roof are both large rectangles — so the model confuses them. Our number is valid in the dashcam domain and doesn't transfer directly to overhead CCTV. That's not in any of the papers we reviewed."*
+### 12 · Challenges
+Deliver as a **finding**, not an apology:
+> *"Testing on real footage exposed a viewpoint gap. DriveIndia is dashcam footage. Enforcement cameras look down from above, and from above a car roof and a bus roof are both large rectangles. BMD-45 measures the same collapse independently — 83.8 percent in-domain down to 33.6 across domains. Our number is valid in the dashcam domain and does not transfer directly to overhead CCTV."*
 
-### 10 · Domain Gap Image
-Point at the misclassified vehicles.
+### 13 · Domain Gap Image
 > *"This is that failure, visible. Cars, motorcycles, auto-rickshaws and pedestrians correct — large vehicles from above, wrong."*
 
-### 11 · Novelty ⭐⭐
-**The most important slide. Lead with Kerala.**
-> *"In 2023 Kerala deployed 726 AI cameras. In the opening days they logged 66.41 lakh violations and issued Rs 428 crore in challans, collecting only Rs 76.7 crore. Detection was never the bottleneck. Enforceability was."*
-
-Pause. Then:
+### 14 · Novelty ⭐⭐ — Evidence Defensibility Score
+**The most important slide.**
 > *"Detection confidence tells you how sure the model is that something is a motorcycle. It tells you nothing about whether the resulting challan would survive being contested. Those come apart constantly. Our Evidence Defensibility Score rates every detection on five dimensions before an officer sees it — and names the weak one. Above 80 it's pre-filled, 50 to 80 goes to review, below 50 it's dropped rather than risk fining someone wrongly."*
 
-### 12 · Future Actions
-Three points, briskly. Emphasise the EDS validation experiment — it's a real result you can produce.
+### 15 · Adaptive Signal Timing ⭐⭐ *(new)*
+Open by naming the shift:
+> *"A challan punishes a driver after the fact. The same camera can stop the queue forming in the first place — and it costs us nothing, because the detection pass has already run."*
 
-### 13 · Conclusion
-Close on the one-liner:
-> *"Existing systems detect violations. SPEC Traffic AI predicts whether the violation it detected can actually be enforced."*
+Then the two decisions worth defending:
+> *"We measure congestion in Passenger Car Units, not vehicle counts. Forty motorcycles and forty buses are not equal demand — the buses need roughly six times the green. Western adaptive systems count vehicles because their traffic is homogeneous enough to get away with it."*
 
-### 14 · Thank You
+> *"And the split uses Webster's method, not a neural network. Four lines of arithmetic that a traffic engineer can check by hand. Same argument as the defensibility score — a decision that will be questioned has to be explainable."*
+
+Close on the honesty:
+> *"Past a flow ratio of about 0.9 Webster's cycle runs to infinity — that is the formula telling you the junction is over capacity and no timing fixes it. Our controller stops optimising, drains the longest queue instead, and records which mode it used. And it recommends only. It cannot actuate a signal head, deliberately: a bad plan isn't a wrong challan, it's a collision."*
+
+### 16 · Green Follows the Queue *(new — the chart)*
+Point at the two panels.
+> *"Left is what the camera measured, right is what the controller recommended. North-south holds 88 percent of the standing queue and its green moves from 37 seconds to 57 as the queue builds. East-west never drops below its 12-second minimum — that minimum is a pedestrian's crossing time, so it is not negotiable. And the change is rate-limited to ten seconds a cycle, because drivers learn a junction's rhythm and a plan that lurches causes the late-amber running we're trying to catch."*
+
+### 17 · Future Actions
+Three points, briskly. Emphasise the EDS validation experiment — it is a real result you can produce.
+
+### 18 · Conclusion
+> *"Existing systems detect violations. SPEC Traffic AI predicts whether the violation it detected can actually be enforced — and uses the same perception pass to recommend how the junction should be timed."*
+
+### 19 · References
+Don't read it. It exists so the panel can see the numbers are sourced.
+
+### 20 · Thank You
 
 ---
 
@@ -88,25 +114,28 @@ Close on the one-liner:
 > *"Three reasons: we trained on 12,000 of the 67,000 images, on a 6 GB laptop GPU, and our mean includes three classes with under 100 instances that can't be learned. Over adequately-supported classes we're at 0.800, and over the enforcement-relevant classes 0.868."*
 
 **"Everyone does YOLO violation detection. What's new here?"**
-> *"The detection isn't new and we don't claim it is — DriveIndia publishes its own baseline. What's new is scoring whether the evidence would hold up. Kerala's system issued Rs 428 crore in challans and collected Rs 76.7 crore. Nobody in this literature models that gap."*
+> *"The detection isn't new and we don't claim it is. What's new is scoring whether the evidence would hold up, and using the same perception pass for signal control instead of only punishment."*
+
+**"Is the viewpoint domain gap really absent from the literature?"**
+> *"Not entirely, and that strengthens it. BMD-45 measures cross-domain collapse independently — 83.8% in-domain to 33.6% on real Indian CCTV. We found the same effect on our own data before seeing that paper. What is still absent is any test of viewpoint transfer in the violation-detection literature specifically."*
+
+**"Why cite Ren if you're criticising it?"**
+> *"Because it's the closest prior system and it's honest about its design. Our criticism is narrow: it reports accuracy with no held-out split and no field deployment. That's exactly the practice we corrected in our own methodology."*
 
 **"Have you tested on real CCTV?"**
-> *"Not on municipal CCTV — that needs a traffic-authority partnership. We tested on real traffic footage and on a live network camera stream using the identical code path. That testing is what revealed the viewpoint domain gap, which is our main technical finding."*
+> *"Not on municipal CCTV — that needs a traffic-authority partnership. We tested on real traffic footage and a live network camera stream through the identical code path. That testing is what revealed the domain gap."*
 
 **"Can it run in real time?"**
-> *"Yes on the ingestion side — we measured a live stream at 43 fps. Detection on our laptop GPU runs around 12 fps at full resolution; a deployment box or a smaller model closes that. Real systems use one edge box per junction."*
+> *"Yes on ingestion — we measured a live stream at 43 fps. Detection on our laptop GPU runs around 12 fps at full resolution; a deployment box or a smaller model closes that. Real systems use one edge box per junction."*
 
-**"What about privacy / wrongful fines?"**
-> *"No challan is issued without a human approving it. Every detection carries a plain-language reason trace, so an officer sees why — not just a confidence score. And signal state is read by colour thresholding rather than a neural network specifically so it can be explained when contested."*
-
-**"Why not just buy a commercial system?"**
-> *"Kerala did. It issued Rs 428 crore in challans and collected Rs 76.7 crore. The gap wasn't detection."*
+**"Has the signal controller been tested on a real junction?"**
+> *"No — we don't have footage of a signalised junction with two arms and the signal head in frame yet, and that's the honest blocker. The controller itself is verified against scripted demand across four scenarios, including one where an arm is completely empty and still gets served every cycle. The measurement half runs end to end on real footage today."*
 
 **"How would you validate the EDS?"**
-> *"Give around 200 evidence packages to a reviewer blind to the score, and measure whether EDS predicts their approve/reject decisions — report the AUC. If it does, we've shown a machine can anticipate why enforcement evidence fails."*
+> *"Give around 200 evidence packages to a reviewer blind to the score, and measure whether EDS predicts their approve/reject decisions — report the AUC."*
 
 **"Which violations actually work today?"**
-> *"Wrong-way is implemented end to end and produces evidence packages. Triple riding, red-light and stop-line are next — the perception they need already works: pedestrian at 0.874, motorcycle at 0.950, traffic light at 0.764. Helmet is the only one needing an additional model."*
+> *"Wrong-way end to end with evidence packages; over-speeding and lane discipline as screening signals. Triple riding, red-light and stop-line are next — the perception they need already works. Helmet is the only one needing an additional model."*
 
 ---
 
@@ -114,54 +143,21 @@ Close on the one-liner:
 
 - ❌ "It's 91% accurate" — that was the old 7-class model, not comparable
 - ❌ "It detects speeding" — vision speed is a **screening signal**; legal speed needs radar
-- ❌ "It controls traffic signals" — you cannot actuate safety-critical hardware
+- ❌ "It controls traffic signals" — say **recommends**. It cannot actuate, by design
 - ❌ "ANPR is 98% accurate" — real-world is 70–85%
 - ❌ "It works on CCTV" — you found the domain gap; say so instead
-
-**Every one of these is a trap you've already avoided in the deck. Don't walk into it verbally.**
-
----
-
-## IF ASKED FOR A DEMO
-
-```bash
-cd "C:\Users\Rishik Reddy\Desktop\senti-traffic"
-python run_senti.py --source data/videos/kolkata.mp4 --show
-```
-
-Then open an evidence folder and show `evidence.json` — the reason trace and the EDS breakdown. **That JSON is more impressive than the video**, because it's the thing nobody else produces.
-
-`python run_senti.py --list-rules` shows the rule interface if they ask about extensibility.
+- ❌ Kerala "issued only 3,000 challans" — **wrong**, see the correction below
 
 ---
 
-## PRE-FLIGHT — Wednesday night
+## ⚠️ CORRECTIONS APPLIED TO THE DECK (26 Aug)
 
-- [ ] Two-page document filled, printed, **signed**
-- [ ] Deck printed (hard copy required)
-- [ ] Deck on a USB stick **and** emailed to yourself
-- [ ] Laptop charged + charger packed
-- [ ] Test the demo once, cold, on battery
-- [ ] Delete the stray `SPEC Traffic AI - Evaluation 2.pptx` so you don't grab the wrong file
+Four figures in earlier drafts did not survive checking. All are fixed in the
+current deck; know why, in case the panel saw an older version.
 
----
-
-## FINAL NOTE
-
-You have a trained model with honest metrics, a working end-to-end pipeline, a public repository, and a genuine technical finding that isn't in the literature you reviewed. That is **well beyond** typical Review-II scope.
-
-The domain gap is a strength, not a weakness. You found it by testing properly. Most projects never look.
-
----
-
-## ⚠️ CORRECTION — Kerala figures (26 Aug, after checking sources)
-
-An earlier version of these notes said Kerala *"detected over one lakh violations
-and issued about three thousand challans."* **That was a transient first-week
-figure from a news report about startup glitches, not the steady state.** Do not
-use it — it will not survive a question.
-
-**Verified one-year funnel:**
+**Kerala.** An earlier draft said *"over one lakh violations, about three
+thousand challans."* That was a first-week news report about startup glitches.
+Verified one-year funnel:
 
 ```
 66.41 lakh violations detected
@@ -170,32 +166,87 @@ Rs 428.4 crore billed
 Rs  76.7 crore collected  (18%)     <- the real failure is COLLECTION
 ```
 
-Issuance is not the bottleneck in Kerala; **collection** is — and collection is
-a legal/administrative problem, not one EDS solves. Be honest about that.
+Issuance is not Kerala's bottleneck; **collection** is — and collection is
+administrative, not something EDS fixes. Be honest about that, then pivot:
 
-**Use Bengaluru as the primary anchor instead — it fits the thesis exactly:**
+> **Bengaluru is the anchor that actually fits.** Its ITMS detects helmet
+> violations at 75–80% raw and reaches 99.9% only by **manually revalidating
+> every fine before issue.** That manual revalidation is exactly the burden the
+> Evidence Defensibility Score triages.
 
-> Bengaluru's ITMS detects helmet violations at 75-80% accuracy raw. The traffic
-> police reach 99.9% only by **manually revalidating every fine before issuing
-> it.** That manual revalidation is precisely the burden the Evidence
-> Defensibility Score is designed to triage.
+**Ren (2024).** An earlier draft attributed *"98.09% on benchmark, 83% caught in
+deployment"* to it. Neither number is in the paper. What Ren actually reports:
+**>96.9% across eight violation types, ~98% average, 99.7% on red-light** — and
+critically, **no held-out split and no field deployment**. The corrected slide
+says that.
 
-**And the legal anchor is stronger than either:** under Section 65B of the
-Evidence Act (now Sec. 63, Bharatiya Sakshya Adhiniyam 2023), electronic evidence
-is inadmissible without a certificate. Evidence quality is not a nicety -- it is
-a statutory precondition.
+**BMD-45.** An earlier draft said *"dashcam-trained model scores 0.46 mAP on real
+CCTV."* The paper's actual finding is stronger and differently framed: a
+**UA-DETRAC-trained** detector scores **33.6% mAP@0.50:0.95** on Indian CCTV
+versus **83.8%** trained in-domain — a 2.5× collapse. UA-DETRAC is itself
+surveillance footage, not dashcam, so transfer fails even between two CCTV
+datasets — and your dashcam→elevated finding remains your own.
 
-## Literature-review answers
+**Cochrane.** 35 studies, not 28. The 8–49% crash-reduction range is correct.
 
-**"Is the domain gap really absent from the literature?"**
-> *"Not entirely, and that strengthens the finding. BMD-45 (CVPR 2026 Findings)
-> independently measures it: a dashcam-trained detector scores 0.46 mAP on real
-> CCTV footage. We found the same effect on our own data before seeing that
-> paper. What remains unaddressed is the gap in the VIOLATION-DETECTION
-> literature specifically -- those papers do not test viewpoint transfer at all."*
+---
 
-**"Why cite Ren if you are criticising it?"**
-> *"Because it is the closest prior system and it is honest about its design. Our
-> criticism is narrow and specific: it reports training accuracy without a
-> held-out split. That is exactly the practice we corrected in our own
-> methodology."*
+## ⚠️ ONE UNVERIFIED NUMBER
+
+The **28.5% ANPR misread** rate [5] is widely attributed to Rhead et al. (2012),
+but the primary is paywalled and we could not read it directly. It is a **UK,
+2012** figure. If pressed, say exactly that and frame it as a floor:
+
+> *"That's UK field conditions in 2012. Indian plates are less standardised and
+> more often damaged, so we treat it as an optimistic floor, not a target."*
+
+---
+
+## IF ASKED FOR A DEMO
+
+```bash
+python run_senti.py --source data/videos/kolkata.mp4 --show
+```
+
+Then open an evidence folder and show `evidence.json` — the reason trace and the
+EDS breakdown. **That JSON is more impressive than the video**, because it is the
+thing nobody else produces.
+
+For the signal controller, no footage needed:
+
+```bash
+python scripts/simulate_signal.py --scenario imbalanced
+```
+
+`python run_senti.py --list-rules` shows the rule interface if they ask about
+extensibility.
+
+---
+
+## PRE-FLIGHT — Wednesday night
+
+- [ ] Two-page document filled, printed, **signed**
+- [ ] **Check the abstract word count** — it is now 242 words. If the form caps
+      it lower, cut the sentence starting *"Confirmed violations trigger…"*
+- [ ] **Check the header** — the form still reads *"REVIEW – I"* and
+      *"30th and 31st July 2026"*. Change it if your department expects Review-II
+- [ ] Deck printed (hard copy required) — **20 slides now**
+- [ ] Page through slides 3, 16 and 19 on a real screen: the table, the chart and
+      the two-column references are new layouts and want a human eye
+- [ ] Deck on a USB stick **and** emailed to yourself
+- [ ] Laptop charged + charger packed
+- [ ] Test the demo once, cold, on battery
+- [ ] Delete the stray `SPEC Traffic AI - Evaluation 2.pptx` and
+      `… FINAL 1.pptx` so you don't grab the wrong file
+
+---
+
+## FINAL NOTE
+
+You have a trained model with honest metrics, a working end-to-end pipeline, a
+public repository, a genuine technical finding, and a second output — signal
+timing — built on the same perception pass at zero extra inference cost. That is
+well beyond typical Review-II scope.
+
+The domain gap is a strength, not a weakness. You found it by testing properly.
+Most projects never look.
