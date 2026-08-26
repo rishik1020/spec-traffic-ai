@@ -66,7 +66,7 @@ Point at the misclassified vehicles.
 
 ### 11 · Novelty ⭐⭐
 **The most important slide. Lead with Kerala.**
-> *"In 2023 Kerala deployed 726 AI cameras. In the opening days they detected over one lakh violations — and issued about three thousand challans. Detection was never the bottleneck. Enforceability was."*
+> *"In 2023 Kerala deployed 726 AI cameras. In the opening days they logged 66.41 lakh violations and issued Rs 428 crore in challans, collecting only Rs 76.7 crore. Detection was never the bottleneck. Enforceability was."*
 
 Pause. Then:
 > *"Detection confidence tells you how sure the model is that something is a motorcycle. It tells you nothing about whether the resulting challan would survive being contested. Those come apart constantly. Our Evidence Defensibility Score rates every detection on five dimensions before an officer sees it — and names the weak one. Above 80 it's pre-filled, 50 to 80 goes to review, below 50 it's dropped rather than risk fining someone wrongly."*
@@ -88,7 +88,7 @@ Close on the one-liner:
 > *"Three reasons: we trained on 12,000 of the 67,000 images, on a 6 GB laptop GPU, and our mean includes three classes with under 100 instances that can't be learned. Over adequately-supported classes we're at 0.800, and over the enforcement-relevant classes 0.868."*
 
 **"Everyone does YOLO violation detection. What's new here?"**
-> *"The detection isn't new and we don't claim it is — DriveIndia publishes its own baseline. What's new is scoring whether the evidence would hold up. Kerala's system detected a lakh of violations and issued three thousand challans. Nobody in this literature models that gap."*
+> *"The detection isn't new and we don't claim it is — DriveIndia publishes its own baseline. What's new is scoring whether the evidence would hold up. Kerala's system issued Rs 428 crore in challans and collected Rs 76.7 crore. Nobody in this literature models that gap."*
 
 **"Have you tested on real CCTV?"**
 > *"Not on municipal CCTV — that needs a traffic-authority partnership. We tested on real traffic footage and on a live network camera stream using the identical code path. That testing is what revealed the viewpoint domain gap, which is our main technical finding."*
@@ -100,7 +100,7 @@ Close on the one-liner:
 > *"No challan is issued without a human approving it. Every detection carries a plain-language reason trace, so an officer sees why — not just a confidence score. And signal state is read by colour thresholding rather than a neural network specifically so it can be explained when contested."*
 
 **"Why not just buy a commercial system?"**
-> *"Kerala did. It detected a lakh of violations and issued three thousand challans. The gap wasn't detection."*
+> *"Kerala did. It issued Rs 428 crore in challans and collected Rs 76.7 crore. The gap wasn't detection."*
 
 **"How would you validate the EDS?"**
 > *"Give around 200 evidence packages to a reviewer blind to the score, and measure whether EDS predicts their approve/reject decisions — report the AUC. If it does, we've shown a machine can anticipate why enforcement evidence fails."*
@@ -151,3 +151,51 @@ Then open an evidence folder and show `evidence.json` — the reason trace and t
 You have a trained model with honest metrics, a working end-to-end pipeline, a public repository, and a genuine technical finding that isn't in the literature you reviewed. That is **well beyond** typical Review-II scope.
 
 The domain gap is a strength, not a weakness. You found it by testing properly. Most projects never look.
+
+---
+
+## ⚠️ CORRECTION — Kerala figures (26 Aug, after checking sources)
+
+An earlier version of these notes said Kerala *"detected over one lakh violations
+and issued about three thousand challans."* **That was a transient first-week
+figure from a news report about startup glitches, not the steady state.** Do not
+use it — it will not survive a question.
+
+**Verified one-year funnel:**
+
+```
+66.41 lakh violations detected
+64.72 lakh challans ISSUED          <- issuance works fine
+Rs 428.4 crore billed
+Rs  76.7 crore collected  (18%)     <- the real failure is COLLECTION
+```
+
+Issuance is not the bottleneck in Kerala; **collection** is — and collection is
+a legal/administrative problem, not one EDS solves. Be honest about that.
+
+**Use Bengaluru as the primary anchor instead — it fits the thesis exactly:**
+
+> Bengaluru's ITMS detects helmet violations at 75-80% accuracy raw. The traffic
+> police reach 99.9% only by **manually revalidating every fine before issuing
+> it.** That manual revalidation is precisely the burden the Evidence
+> Defensibility Score is designed to triage.
+
+**And the legal anchor is stronger than either:** under Section 65B of the
+Evidence Act (now Sec. 63, Bharatiya Sakshya Adhiniyam 2023), electronic evidence
+is inadmissible without a certificate. Evidence quality is not a nicety -- it is
+a statutory precondition.
+
+## Literature-review answers
+
+**"Is the domain gap really absent from the literature?"**
+> *"Not entirely, and that strengthens the finding. BMD-45 (CVPR 2026 Findings)
+> independently measures it: a dashcam-trained detector scores 0.46 mAP on real
+> CCTV footage. We found the same effect on our own data before seeing that
+> paper. What remains unaddressed is the gap in the VIOLATION-DETECTION
+> literature specifically -- those papers do not test viewpoint transfer at all."*
+
+**"Why cite Ren if you are criticising it?"**
+> *"Because it is the closest prior system and it is honest about its design. Our
+> criticism is narrow and specific: it reports training accuracy without a
+> held-out split. That is exactly the practice we corrected in our own
+> methodology."*
