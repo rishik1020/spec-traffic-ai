@@ -60,8 +60,8 @@ video → detect → track → rule engine → rolling buffer → evidence packa
 | `senti/evidence/buffer.py` | rolling frame buffer |
 | `senti/evidence/package.py` | evidence writer + **Evidence Defensibility Score** |
 | `senti/rules/base.py` | `Rule` interface, registry, temporal consistency |
-| `senti/rules/wrong_way.py` | the only implemented rule |
-| `senti/calibration.py` | ⚠️ **built but NOT wired into any rule yet** |
+| `senti/rules/wrong_way.py` | the only implemented rule — per-lane, abstains when uncalibrated |
+| `senti/calibration.py` | Lane / StopLine / Homography — **wired into `wrong_way`** |
 | `senti/engine.py` | the wiring |
 
 Scripts: `prepare_driveindia.py`, `prune_classes.py`, `train_local.py`, `train_colab.py`,
