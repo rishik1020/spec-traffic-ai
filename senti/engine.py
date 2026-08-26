@@ -18,6 +18,7 @@ from typing import Optional
 
 import yaml
 
+from .calibration import Calibration
 from .core.types import FrameResult
 from .evidence.buffer import RollingBuffer
 from .evidence.package import EvidenceWriter
@@ -41,6 +42,10 @@ class Engine:
         self.config = yaml.safe_load(Path(config_path).read_text(encoding='utf-8'))
         self.camera_id = self.config.get('camera_id', 'cam')
         self.show = show
+
+        # Per-camera geometry. Built ONCE and handed to every rule via context,
+        # so lane lookups are not recomputed per rule per frame.
+        self.calibration = Calibration.from_dict(self.config.get('calibration'))
 
         self.detector = TrafficDetector(
             weights=weights or self.config.get('weights',
@@ -85,6 +90,14 @@ class Engine:
         print(f'[senti] camera={self.camera_id}  {info.width}x{info.height} '
               f'@ {info.fps:.1f}fps  live={info.is_live}')
         print(f'[senti] rules: {[r.name for r in self.rules]}')
+        cal = self.calibration
+        if cal.is_calibrated:
+            print(f'[senti] calibration: {len(cal.lanes)} lane(s), '
+                  f'{len(cal.stop_lines)} stop line(s), '
+                  f'homography {"yes" if cal.homography else "no"}')
+        else:
+            print('[senti] calibration: NONE -- geometric rules will abstain.')
+            print('[senti]   run scripts/calibrate.py to draw lanes for this camera.')
         print(f'[senti] model: {"DriveIndia" if self.detector.indian_model else "COCO fallback"}')
 
         for idx, ts, frame in src.frames():
@@ -132,7 +145,8 @@ class Engine:
         separate rules would triple the work and could yield three answers.
         """
         ctx: dict = {'signal_state': 'unknown', 'signal_score': 0.0,
-                     'total_pcu': result.total_pcu}
+                     'total_pcu': result.total_pcu,
+                     'calibration': self.calibration}
         lights = result.traffic_lights
         if lights:
             biggest = max(lights, key=lambda d: d.area)
