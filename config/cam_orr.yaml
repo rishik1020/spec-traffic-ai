@@ -1,0 +1,95 @@
+# SPEC Traffic AI -- Hyderabad Outer Ring Road (ORR)
+#
+# Highway profile: over-speeding and lane discipline. No stop lines or signals,
+# so the junction rules are simply not enabled -- same binary, different YAML.
+#
+# BEFORE USING THIS, RUN THE CALIBRATION TOOL:
+#   python scripts/calibrate.py --source data/videos/orr.mp4 --config config/cam_orr.yaml
+#
+#   L  draw each lane (click corners, D to close, then click once in the
+#      direction traffic flows). Do the RIGHTMOST lane last so you remember
+#      which one to mark fast_lane.
+#   H  click 4 points on the road surface, then type their real-world metres.
+#      On ORR the easiest reference is lane width (3.5 m) and a length of
+#      carriageway you can pace or measure from satellite imagery.
+#   W  write.
+#
+# Then hand-edit the generated `calibration:` block below to add
+# `fast_lane: true` to the rightmost lane, and per-lane speed limits if wanted.
+
+camera_id: orr01
+location: "Outer Ring Road, Hyderabad"
+
+weights: runs/driveindia/weights/best.pt
+
+# 1280, not the 640 default. On the Kolkata test 640 found 3 objects and 1280
+# found 22 -- highway vehicles are small and distant, so this matters more here.
+imgsz: 1280
+stride: 1
+
+evidence:
+  pre_seconds: 6.0        # a little longer: at 100 km/h a vehicle covers 28 m/s
+  post_seconds: 3.0
+  downscale: 0.5
+
+# ---------------------------------------------------------------------------
+# CALIBRATION -- overwritten by scripts/calibrate.py. Shown here as a worked
+# example so the shape is clear before you draw your own.
+# ---------------------------------------------------------------------------
+# calibration:
+#   lanes:
+#     - name: lane1_left
+#       polygon: [[300, 700], [640, 700], [700, 1050], [240, 1050]]
+#       heading: [0, -1]              # image coords: y increases DOWNWARD
+#     - name: lane2_middle
+#       polygon: [[650, 700], [990, 700], [1060, 1050], [710, 1050]]
+#       heading: [0, -1]
+#     - name: lane3_right
+#       polygon: [[1000, 700], [1340, 700], [1420, 1050], [1070, 1050]]
+#       heading: [0, -1]
+#       fast_lane: true               # India drives left -> rightmost is fast
+#   homography:
+#     src:   [[300, 1050], [1420, 1050], [1340, 700], [300, 700]]
+#     dst_m: [[0, 0], [10.5, 0], [10.5, 40], [0, 40]]   # 3 lanes x 3.5m, 40m long
+
+rules:
+
+  # -------------------------------------------------------------------------
+  # SCREENING SIGNAL ONLY. Legal speed enforcement in India requires radar or
+  # LIDAR; a camera cannot support a speed challan on its own. Every evidence
+  # package this rule writes carries legally_admissible: false.
+  # -------------------------------------------------------------------------
+  over_speeding:
+    limits_kmph:              # per vehicle class -- the MV Act sets different
+      car: 120                # limits by category, so one number per road
+      motorcycle: 80          # would be wrong. VERIFY against the current
+      auto_rickshaw: 50       # Telangana notification before quoting these.
+      bus: 80
+      truck: 80
+      commercial_vehicle: 80
+    default_limit_kmph: 80
+    tolerance_kmph: 5         # vision speed carries ~10-15% error; firing at
+                              # exactly the limit would flag compliant drivers
+    window_frames: 12         # smoothing window -- frame-to-frame deltas are
+                              # dominated by box jitter
+    min_frames: 10
+    cooldown_frames: 250
+
+  # -------------------------------------------------------------------------
+  # ADVISORY. Lane-discipline enforcement rests on MV Act s.177 rather than a
+  # dedicated provision, so this flags for officer attention.
+  # -------------------------------------------------------------------------
+  lane_discipline:
+    slow_ratio: 0.7           # below 70% of prevailing traffic speed
+    min_reference_vehicles: 3 # need enough others to form a median
+    min_speed_kmph: 20        # below this it is congestion, not obstruction
+    window_frames: 12
+    min_frames: 25            # ~1s at 25fps -- a brief overtake is legitimate
+    cooldown_frames: 400
+
+  # Wrong-way on an access-controlled expressway is rare but severe.
+  wrong_way:
+    tolerance_deg: 70
+    min_displacement: 60      # higher than urban: highway tracks move further
+    min_frames: 8
+    cooldown_frames: 200
