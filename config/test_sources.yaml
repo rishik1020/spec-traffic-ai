@@ -127,6 +127,120 @@ sources:
       signals changing, vehicles crossing. Worth probing first.
 
   # ---------------------------------------------------------------------
+  # ASIA-PACIFIC LIVE -- added 11 Oct 2026. Two reasons these beat Fresno.
+  #
+  # TIME ZONE. All are UTC+7 to +9, i.e. 1.5 to 3.5 hours AHEAD of IST, so a
+  # demo at 11am Indian time lands at midday to mid-afternoon locally. Fresno
+  # is IST-12.5 and is therefore dark during every Indian working hour.
+  #
+  # TRAFFIC COMPOSITION. Vietnam, Thailand, Indonesia and the Philippines are
+  # motorcycle-dominated, which is far closer to the class distribution
+  # DriveIndia trained our detector on than US or European traffic. Fresno
+  # exercises the junction RULES; these exercise the DETECTOR as well.
+  # ---------------------------------------------------------------------
+
+  # CHECKED 11 Oct 2026: DEAD -- resolves but will not open.
+  - id: hanoi_vinh_tuy_bridge
+    kind: rejected
+    url: https://www.youtube.com/watch?v=GGR2af0BWdM
+    place: "Vinh Tuy Bridge, Hanoi, Vietnam"
+    utc_offset: 7
+    static: true
+    elevated: true
+    signalised: false
+    notes: "24/7 elevated bridge view. Heavy motorbike traffic. No junction."
+
+  # CHECKED 11 Oct 2026: reachable, brightness 121 in daylight but 0.0 objects/frame.
+  # Bright enough, so this is a VIEWPOINT problem, not a light one --
+  # the view is too wide or too distant for vehicles to carry pixels.
+  - id: hanoi_vinh_tuy_2k
+    kind: live
+    url: https://www.youtube.com/watch?v=bnM8h6wBgls
+    place: "Vinh Tuy Bridge, Hanoi, Vietnam (2K QHD)"
+    utc_offset: 7
+    static: true
+    elevated: true
+    signalised: false
+    notes: "Same bridge, higher resolution. More pixels on small two-wheelers."
+
+  # CHECKED 11 Oct 2026: reachable, brightness 101 at dusk but 0.0 objects/frame.
+  # Bright enough, so this is a VIEWPOINT problem, not a light one --
+  # the view is too wide or too distant for vehicles to carry pixels.
+  - id: shibuya_scramble
+    kind: live
+    url: https://www.youtube.com/watch?v=dfVK7ld38Ys
+    place: "Shibuya Scramble Crossing, Tokyo, Japan"
+    utc_offset: 9
+    static: true
+    elevated: true
+    signalised: true
+    notes: >
+      The most reliable static elevated SIGNALISED crossing on the internet --
+      it has run continuously for years. Signals and a pedestrian phase in
+      frame. Japanese traffic is orderly and car-dominated, so expect few
+      violations; its value is as a clean test of the signal rules.
+
+  # CHECKED 11 Oct 2026: reachable, brightness 139 at dusk but 0.0 objects/frame.
+  # Bright enough, so this is a VIEWPOINT problem, not a light one --
+  # the view is too wide or too distant for vehicles to carry pixels.
+  - id: shibuya_scramble_alt
+    kind: live
+    url: https://www.youtube.com/watch?v=8H3nRCFVR6Y
+    place: "Shibuya Scramble Crossing, Tokyo (second stream)"
+    utc_offset: 9
+    static: true
+    elevated: true
+    signalised: true
+    notes: "Backup angle on the same crossing."
+
+  # CHECKED 11 Oct 2026: reachable, brightness 105 in daylight but 0.0 objects/frame.
+  # Bright enough, so this is a VIEWPOINT problem, not a light one --
+  # the view is too wide or too distant for vehicles to carry pixels.
+  - id: bangkok_petchaburi
+    kind: live
+    url: https://www.youtube.com/watch?v=a_bUVExv_Cg
+    place: "Petchaburi Road, Bangkok, Thailand"
+    utc_offset: 7
+    static: true
+    elevated: true
+    signalised: false
+    notes: "Busy arterial, motorcycle-heavy."
+
+  # ============================================================
+  # CHECKED 11 Oct 2026: BEST LIVE SOURCE WE HAVE. 1280x720, brightness 130,
+  # 8.3 objects/frame -- comparable to kolkata.mp4's ~10. A genuine fixed CCTV
+  # camera with a burnt-in timestamp, elevated over a busy street.
+  # Detected mix: car 24, motorcycle 20, pedestrian 14, auto_rickshaw 1 --
+  # Philippine tricycles register as auto_rickshaw, which is about as close to
+  # Indian traffic as a non-Indian camera gets.
+  # NO SIGNAL in frame, so it serves wrong_way / triple_riding /
+  # over_speeding / lane_discipline, not the two signal rules.
+  # ============================================================
+  - id: davao_bangoy
+    kind: live
+    url: https://www.youtube.com/watch?v=yznpQlk0exE
+    place: "F Bangoy Street, Davao City, Philippines"
+    utc_offset: 8
+    static: true
+    elevated: false
+    signalised: false
+    notes: "Street-level. Tricycles and motorcycles; mixed traffic like India."
+
+  # CHECKED 11 Oct 2026: scored 5.0 objects/frame but LOOK AT THE FRAME before
+  # trusting that. Wide-angle fisheye where half the view is a shuttered
+  # shopfront and pavement; vehicles occupy a narrow distant strip and a
+  # foreground truck goes undetected entirely. Marginal despite the number.
+  - id: agdao_leon_garcia
+    kind: live
+    url: https://www.youtube.com/watch?v=FWvIPfxK5Jo
+    place: "Leon Garcia Street, Agdao, Philippines"
+    utc_offset: 8
+    static: true
+    elevated: false
+    signalised: false
+    notes: "Street-level, mixed traffic."
+
+  # ---------------------------------------------------------------------
   # AGGREGATORS -- browse by hand, then add the specific feed here
   # ---------------------------------------------------------------------
 
@@ -283,3 +397,14 @@ sources:
       measured and discarded: 640x360, 0.2 objects/frame against kolkata.mp4's
       10, and frame-to-frame motion 21.6 -- a panning camera, which fails the
       static-camera gate that every geometric rule depends on.
+
+# ---------------------------------------------------------------------------
+# A CAVEAT ON THE "STATIC CAMERA" TEST
+#
+# Mean frame-to-frame pixel change does NOT separate a panning camera from a
+# busy static one. The Davao feed scored 13.5 on that measure and looked like a
+# moving camera; the frame shows a bolted-down CCTV unit with a burnt-in
+# timestamp, and the 13.5 was traffic. Treat the number as a prompt to LOOK at
+# a frame, never as the verdict. scripts/triage_videos.py scores this properly
+# by tracking background feature points instead of whole-frame difference.
+# ---------------------------------------------------------------------------
