@@ -11,8 +11,10 @@ venv/
 # runtime output
 data/evidence/
 data/videos/
-data/review/          # officer decisions -- run artefacts;
-                      # validation RESULTS are exported to results/
-data/signal/          # recommended signal plans -- generated, per-run
+# officer decisions -- run artefacts;
+data/review/
+# validation RESULTS are exported to results/
+# recommended signal plans -- generated, per-run
+data/signal/
 *.log
 train.log
