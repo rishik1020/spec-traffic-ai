@@ -1,0 +1,97 @@
+# SPEC Traffic AI -- penalty schedule
+#
+# ============================================================================
+# THESE FIGURES ARE INDICATIVE AND MUST BE VERIFIED BEFORE ANY REAL USE.
+#
+# The Motor Vehicles (Amendment) Act 2019 sets central penalties, but states
+# notify their own compounding amounts under it and revise them. Telangana's
+# current notification is the authority for a Hyderabad deployment, not this
+# file and not the central Act.
+#
+# The portal prints `verified: false` next to every amount drawn from here, so
+# a challan drafted in a demo can never be mistaken for one drafted against the
+# live schedule. Set `verified: true` on a row only after checking it against
+# the gazette, and record where you checked in `source`.
+# ============================================================================
+
+currency: INR
+schedule_verified: false
+last_checked: null          # set to a date when someone actually checks
+
+penalties:
+
+  red_light_jump:
+    section: "MV Act s.119 r/w s.177"
+    offence: "Disobeying a traffic signal"
+    amount: 1000
+    repeat_amount: 1500
+    verified: false
+    notes: >
+      s.177 is the general-offence provision (Rs 500 first, Rs 1500 repeat).
+      Signal jumping is commonly compounded higher, and some states charge it
+      under s.184 as dangerous driving instead, which carries a far larger
+      range. Which section is cited changes the amount materially -- confirm
+      local practice before issuing.
+
+  stop_line_crossing:
+    section: "MV Act s.177"
+    offence: "Stopping beyond the stop line"
+    amount: 500
+    repeat_amount: 1500
+    verified: false
+    notes: >
+      Flagged as ADVISORY by the rule itself. Stop-line discipline rests on
+      state traffic regulations made under the general-offence provision rather
+      than a dedicated section.
+
+  triple_riding:
+    section: "MV Act s.194C"
+    offence: "Carrying more than one pillion rider"
+    amount: 1000
+    verified: false
+    licence_disqualification_months: 3
+    notes: >
+      s.194C carries disqualification of the driving licence for three months
+      in addition to the fine. That is a consequence an officer must be shown
+      before approving, not a footnote.
+
+  no_helmet:
+    section: "MV Act s.194D"
+    offence: "Riding without protective headgear"
+    amount: 1000
+    verified: false
+    licence_disqualification_months: 3
+    notes: "Rule not implemented -- listed so the schedule is complete."
+
+  wrong_way:
+    section: "MV Act s.184"
+    offence: "Driving dangerously"
+    amount: 5000
+    amount_range: [1000, 5000]
+    verified: false
+    notes: >
+      s.184 is a RANGE, not a fixed sum, and the upper end usually requires a
+      court. An automated system should draft at the lower end and let the
+      officer raise it. The portal shows the range rather than pretending the
+      figure is settled.
+
+  over_speeding:
+    section: "MV Act s.183"
+    offence: "Driving at excessive speed"
+    amount: 1000
+    amount_heavy_vehicle: 2000
+    verified: false
+    notes: >
+      SCREENING ONLY. The rule marks its own evidence legally_admissible:false
+      because vision speed is not admissible without radar or LIDAR. The portal
+      must never let this one be approved as a challan -- it exists to direct
+      attention, not to fine.
+    blocks_challan: true
+
+  lane_discipline:
+    section: "MV Act s.177"
+    offence: "Obstructing the flow of traffic"
+    amount: 500
+    verified: false
+    notes: "ADVISORY. Flagged for officer attention, not automatic challan."
+    blocks_challan: true

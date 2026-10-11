@@ -48,6 +48,11 @@ class Defensibility:
     score: float = 0.0            # 0-100
     verdict: str = 'review'       # auto | review | drop
     weakest: str = ''
+    # Which dimensions actually contributed. Plate recognition is not built
+    # yet, and scoring a system on a capability it does not have is not
+    # humility, it is a broken instrument -- see `compute`.
+    dimensions_used: tuple = ()
+    plate_available: bool = False
 
     WEIGHTS = {
         'plate': 0.30,            # no plate, no challan -- weighted highest
@@ -66,8 +71,28 @@ class Defensibility:
         plate_conf: float = 0.0,
         signal_score: float = 0.0,
         track_frames: int = 0,
+        plate_available: bool = False,
     ) -> 'Defensibility':
+        """Score the evidence over the dimensions that can actually be measured.
+
+        WHY `plate_available` EXISTS
+        Plate carries the heaviest weight, 0.30, because a challan without an
+        identified vehicle is not a challan. But ANPR is not implemented, so
+        plate_conf is always 0 -- which silently capped every score ever
+        produced at 70/100 and made the `auto` band at 80 mathematically
+        unreachable. Every package in the system was being judged against a
+        ceiling it could not touch, and the three-band triage had quietly
+        become a two-band one.
+
+        The fix is not to invent a plate score. It is to score only what was
+        measured and say so: when plate is unavailable its weight is
+        redistributed across the remaining dimensions in proportion, and
+        `dimensions_used` records exactly which contributed. The number stays
+        comparable across packages and the omission stays visible, which is the
+        same bargain the rest of the system makes when it abstains.
+        """
         d = cls()
+        d.plate_available = bool(plate_available)
 
         # 1. plate -- can the vehicle actually be identified?
         d.plate = max(0.0, min(1.0, plate_conf))
@@ -105,14 +130,26 @@ class Defensibility:
             'track_integrity': d.track_integrity, 'rule_margin': d.rule_margin,
             'context': d.context,
         }
-        d.score = round(100.0 * sum(parts[k] * w for k, w in cls.WEIGHTS.items()), 1)
+        if not plate_available:
+            parts.pop('plate')
+        d.dimensions_used = tuple(parts)
+
+        # Renormalise so the weights of whatever remains still sum to 1. The
+        # score therefore always spans the full 0-100 range and the bands keep
+        # their meaning, whichever dimensions were available.
+        total_w = sum(cls.WEIGHTS[k] for k in parts) or 1.0
+        d.score = round(100.0 * sum(parts[k] * cls.WEIGHTS[k] for k in parts)
+                        / total_w, 1)
         d.weakest = min(parts, key=parts.get)
         d.verdict = 'auto' if d.score >= 80 else ('review' if d.score >= 50 else 'drop')
         return d
 
     def explain(self) -> str:
-        return (f'EDS {self.score:.0f}/100 ({self.verdict}); weakest dimension: '
+        base = (f'EDS {self.score:.0f}/100 ({self.verdict}); weakest dimension: '
                 f'{self.weakest} ({getattr(self, self.weakest):.2f})')
+        if not self.plate_available:
+            base += '; scored WITHOUT plate (ANPR not wired)'
+        return base
 
 
 class EvidenceWriter:

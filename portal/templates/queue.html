@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Review queue &middot; SPEC Traffic AI</title>
+<link rel="stylesheet" href="/static/style.css">
+</head><body>
+<header class="top">
+  <div><a class="brand" href="/">SPEC Traffic AI</a><span class="sub">Officer review</span></div>
+  <div class="who">{{officer}}</div>
+</header>
+{{blind_banner}}
+<main>
+  <nav class="tabs">{{tabs}}</nav>
+  <div class="progress"><i style="width:{{progress}}%"></i></div>
+  <p class="muted">{{done}} of {{total}} finally decided</p>
+  <div class="rows">{{rows}}</div>
+</main>
+</body></html>

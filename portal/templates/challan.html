@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{offence}} &middot; Challan draft</title>
+<link rel="stylesheet" href="/static/style.css">
+</head><body>
+<header class="top">
+  <div><a class="brand" href="/">&larr; Queue</a><span class="sub">Challan draft</span></div>
+  <div class="who">{{officer}}</div>
+</header>
+{{blind_banner}}
+<main class="review">
+
+  <section class="media">{{media}}</section>
+
+  <aside class="side">
+
+    <section class="panel sheet">
+      <div class="sheet-head">
+        <div>
+          <h1 class="offence">{{offence}}</h1>
+          <div class="section">{{section}}</div>
+        </div>
+      </div>
+      <div class="amount-row">
+        <div class="amount">{{amount}}</div>
+        <div class="amount-note">{{verified_mark}}</div>
+      </div>
+      {{consequences}}
+      {{blocked}}
+      <div class="ref">Ref <code>{{eid}}</code></div>
+    </section>
+
+    <section class="panel reason">
+      <h2>Why this was flagged</h2>
+      <p class="trace">{{reason_trace}}</p>
+    </section>
+
+    {{eds_block}}
+
+    <section class="panel">
+      <h2>Record</h2>
+      <dl class="facts">{{facts}}</dl>
+    </section>
+
+    {{history}}
+    <details class="panel"><summary>Raw detail</summary><pre>{{detail}}</pre></details>
+    {{decided}}
+
+    <form class="panel decide" method="post" action="/decide">
+      <h2>Decision</h2>
+      <input type="hidden" name="evidence_id" value="{{eid}}">
+      <input type="hidden" name="seconds" id="seconds" value="0">
+
+      <label for="plate">Plate number <span class="muted">(if readable)</span></label>
+      <input id="plate" name="plate_number" autocomplete="off"
+             placeholder="TS 09 AB 1234" value="{{plate_value}}">
+
+      <label for="cite">Citation</label>
+      <textarea id="cite" name="citation" rows="3"{{cite_required}}
+                placeholder="What you saw in the footage, in your words."></textarea>
+      <p class="muted">{{cite_hint}}</p>
+
+      <label for="why">If rejecting, why?</label>
+      <select id="why" name="rejection_reason">
+        <option value="">&mdash;</option>
+        {{reasons}}
+      </select>
+
+      <div class="actions">
+        <button class="no" name="decision" value="rejected" type="submit">Reject</button>
+        <button class="mid" name="decision" value="escalated" type="submit">Send for review</button>
+        <button class="ok" name="decision" value="approved" type="submit">Approve &amp; issue</button>
+      </div>
+      <p class="muted">A approve &middot; S send for review &middot; R reject</p>
+    </form>
+  </aside>
+</main>
+<script>
+  // Time on screen is recorded because a decision made in two seconds and one
+  // made in forty are different evidence about how clear the package was.
+  const t0 = Date.now();
+  const form = document.querySelector('form.decide');
+  form.addEventListener('submit', () => {
+    document.getElementById('seconds').value = ((Date.now() - t0) / 1000).toFixed(1);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, select, textarea')) return;
+    const k = e.key.toLowerCase();
+    const map = { a: 'button.ok', s: 'button.mid', r: 'button.no' };
+    if (map[k]) form.querySelector(map[k]).click();
+  });
+</script>
+</body></html>
