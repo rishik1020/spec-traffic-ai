@@ -1,0 +1,99 @@
+# SPEC Traffic AI -- F Bangoy Street, Davao City, Philippines
+#
+# A live fixed CCTV camera, elevated over a busy street, recorded from
+# https://www.youtube.com/watch?v=yznpQlk0exE
+#
+# WHY A NON-INDIAN CAMERA EARNS A PLACE HERE
+# Philippine street traffic is motorcycle-dominated and carries tricycles that
+# our DriveIndia-trained detector reads as auto_rickshaw. Probed live it
+# returned 8.3 objects per frame -- comparable to kolkata.mp4's ~10 -- with a
+# mix of car 24, motorcycle 20, pedestrian 14, auto_rickshaw 1. It is the
+# closest thing to Indian traffic among cameras that are actually up, static,
+# elevated, and in DAYLIGHT during Indian working hours (UTC+8, so IST+2.5).
+#
+# NO SIGNAL HEAD IS VISIBLE, so red_light_jump and stop_line_crossing cannot
+# run here. Those need the Fresno junction, recorded overnight.
+#
+# ---------------------------------------------------------------------------
+# THE LANE POLYGON BELOW IS EYEBALLED; THE HEADING IS NOT.
+#
+# The polygon is a generous outline of the road surface, traced from a frame.
+# That part is safe to eyeball -- a polygon slightly too big only means a few
+# extra vehicles are considered, and `lane_at` abstains outside it either way.
+#
+# The HEADING is the dangerous one. Enter it backwards and wrong_way inverts:
+# every lawful vehicle is flagged and the real offenders are the only ones
+# ignored. A still frame cannot show you which way traffic moves, and guessing
+# it from vehicle appearance is exactly how fourteen false positives got into
+# the kolkata set. So the value below is a PLACEHOLDER, to be overwritten by
+# measurement before this config is used for anything:
+#
+#     python scripts/measure_headings.py --source data/videos/davao.mp4 \
+#         --config config/cam_davao.yaml --apply
+# ---------------------------------------------------------------------------
+
+camera_id: davao
+location: "F Bangoy Street & Solim, Davao City, Philippines"
+
+weights: runs/driveindia/weights/best.pt
+imgsz: 1280
+stride: 1
+
+evidence:
+  pre_seconds: 2.0
+  post_seconds: 2.0
+  downscale: 0.5
+
+calibration:
+  lanes:
+    - name: bangoy_street
+      # road surface, from upper-left distance to lower-right foreground
+      polygon: [[250, 195], [900, 195], [1280, 500], [1280, 700],
+                [420, 700], [150, 420]]
+      heading: [0, 1]        # PLACEHOLDER -- run measure_headings.py --apply
+      approach: north
+
+rules:
+
+  # wrong_way is OFF, and the reason is measured rather than assumed.
+  #
+  # measure_headings.py returned coherence 0.30 with 35% of tracks opposing --
+  # INCOHERENT. Clustering the tracks by direction shows why: traffic toward
+  # the camera spans x 296-817 and traffic away spans x 266-1163. The two
+  # directions are cleanly opposite in heading ([+0.65,+0.76] against
+  # [-0.55,-0.84]) but occupy THE SAME PIXELS. This is a narrow two-way street
+  # viewed obliquely, where opposing flows interleave.
+  #
+  # No lane polygon can separate them, so no heading can be declared, so
+  # wrong_way cannot run here honestly. Forcing a heading would flag one entire
+  # direction of lawful traffic -- exactly the fault that put fourteen false
+  # positives in the kolkata set.
+  # wrong_way: {}
+
+  # triple_riding is OFF too, and this camera is what settled it.
+  #
+  # It needs no calibration, no signal and no homography, so this footage was
+  # the fair test: abundant motorcycles AND abundant pedestrians, in daylight,
+  # at 8 objects per frame. Measured over 1190 frames:
+  #
+  #     833 pedestrian detections, 1228 motorcycle detections
+  #     bikes with 0 people on them : 1164
+  #     bikes with 1 person on them :   63
+  #     bikes with 2 people on them :    1   (overlaps 0.10 and 0.29,
+  #                                           both under the 0.35 threshold)
+  #
+  # The rule fires above TWO riders. The detector has never once put two people
+  # on the same bike, so the condition is unreachable -- not rare, unreachable.
+  #
+  # The cause is the training data, not the threshold. DriveIndia annotates a
+  # rider as part of the motorcycle box rather than as a separate pedestrian,
+  # so the pedestrian class simply does not fire on people who are seated on
+  # bikes. No threshold recovers a detection that was never made.
+  #
+  # This also condemns no_helmet, which depends on the same thing. Both need
+  # rider-annotated training data or a dedicated rider/helmet model.
+  # triple_riding: {}
+
+  # over_speeding and lane_discipline need a homography, which needs real
+  # measured distances on the road surface. Not available from a borrowed
+  # camera, so they stay off rather than producing numbers nobody can defend.
