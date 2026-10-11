@@ -146,7 +146,10 @@ class RollingBuffer:
                 writer.write(bf.frame)
         finally:
             writer.release()
-        return path
+        # OpenCV's mp4v is undecodable in every browser, and the officer portal
+        # is the one place this clip has to play. Transcode to H.264.
+        from .encode import to_browser_mp4
+        return to_browser_mp4(path)
 
     @property
     def memory_mb(self) -> float:

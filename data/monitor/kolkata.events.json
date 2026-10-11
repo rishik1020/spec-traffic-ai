@@ -1,0 +1,156 @@
+{
+  "camera_id": "kolkata",
+  "video": "kolkata.mp4",
+  "events": [
+    {
+      "evidence_id": "kolkata_wrong_way_t2_f31",
+      "rule": "wrong_way",
+      "track_id": 2,
+      "vehicle_class": "car",
+      "frame_index": 31,
+      "seconds": 1.03,
+      "reason": "car (track #2) travelling 89 degrees against the permitted direction of flow in lane \"left\", sustained over 21px of movement",
+      "confidence": 0.453
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t86_f187",
+      "rule": "wrong_way",
+      "track_id": 86,
+      "vehicle_class": "bus",
+      "frame_index": 187,
+      "seconds": 6.23,
+      "reason": "bus (track #86) travelling 154 degrees against the permitted direction of flow in lane \"left\", sustained over 20px of movement",
+      "confidence": 0.472
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t62_f187",
+      "rule": "wrong_way",
+      "track_id": 62,
+      "vehicle_class": "car",
+      "frame_index": 187,
+      "seconds": 6.23,
+      "reason": "car (track #62) travelling 160 degrees against the permitted direction of flow in lane \"left\", sustained over 49px of movement",
+      "confidence": 0.649
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t65_f190",
+      "rule": "wrong_way",
+      "track_id": 65,
+      "vehicle_class": "car",
+      "frame_index": 190,
+      "seconds": 6.33,
+      "reason": "car (track #65) travelling 169 degrees against the permitted direction of flow in lane \"left\", sustained over 21px of movement",
+      "confidence": 0.487
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t99_f197",
+      "rule": "wrong_way",
+      "track_id": 99,
+      "vehicle_class": "car",
+      "frame_index": 197,
+      "seconds": 6.57,
+      "reason": "car (track #99) travelling 59 degrees against the permitted direction of flow in lane \"right\", sustained over 28px of movement",
+      "confidence": 0.903
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t63_f201",
+      "rule": "wrong_way",
+      "track_id": 63,
+      "vehicle_class": "bus",
+      "frame_index": 201,
+      "seconds": 6.7,
+      "reason": "bus (track #63) travelling 172 degrees against the permitted direction of flow in lane \"right\", sustained over 23px of movement",
+      "confidence": 0.801
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t63_f241",
+      "rule": "wrong_way",
+      "track_id": 63,
+      "vehicle_class": "bus",
+      "frame_index": 241,
+      "seconds": 8.03,
+      "reason": "bus (track #63) travelling 177 degrees against the permitted direction of flow in lane \"right\", sustained over 39px of movement",
+      "confidence": 0.546
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t140_f242",
+      "rule": "wrong_way",
+      "track_id": 140,
+      "vehicle_class": "car",
+      "frame_index": 242,
+      "seconds": 8.07,
+      "reason": "car (track #140) travelling 104 degrees against the permitted direction of flow in lane \"right\", sustained over 37px of movement",
+      "confidence": 0.505
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t167_f252",
+      "rule": "wrong_way",
+      "track_id": 167,
+      "vehicle_class": "car",
+      "frame_index": 252,
+      "seconds": 8.4,
+      "reason": "car (track #167) travelling 115 degrees against the permitted direction of flow in lane \"right\", sustained over 25px of movement",
+      "confidence": 0.713
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t155_f269",
+      "rule": "wrong_way",
+      "track_id": 155,
+      "vehicle_class": "bus",
+      "frame_index": 269,
+      "seconds": 8.97,
+      "reason": "bus (track #155) travelling 168 degrees against the permitted direction of flow in lane \"right\", sustained over 76px of movement",
+      "confidence": 0.511
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t183_f282",
+      "rule": "wrong_way",
+      "track_id": 183,
+      "vehicle_class": "bus",
+      "frame_index": 282,
+      "seconds": 9.4,
+      "reason": "bus (track #183) travelling 163 degrees against the permitted direction of flow in lane \"right\", sustained over 31px of movement",
+      "confidence": 0.738
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t63_f284",
+      "rule": "wrong_way",
+      "track_id": 63,
+      "vehicle_class": "car",
+      "frame_index": 284,
+      "seconds": 9.47,
+      "reason": "car (track #63) travelling 170 degrees against the permitted direction of flow in lane \"right\", sustained over 74px of movement",
+      "confidence": 0.488
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t200_f287",
+      "rule": "wrong_way",
+      "track_id": 200,
+      "vehicle_class": "motorcycle",
+      "frame_index": 287,
+      "seconds": 9.57,
+      "reason": "motorcycle (track #200) travelling 97 degrees against the permitted direction of flow in lane \"right\", sustained over 23px of movement",
+      "confidence": 0.703
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t167_f292",
+      "rule": "wrong_way",
+      "track_id": 167,
+      "vehicle_class": "car",
+      "frame_index": 292,
+      "seconds": 9.73,
+      "reason": "car (track #167) travelling 103 degrees against the permitted direction of flow in lane \"right\", sustained over 22px of movement",
+      "confidence": 0.755
+    },
+    {
+      "evidence_id": "kolkata_wrong_way_t217_f298",
+      "rule": "wrong_way",
+      "track_id": 217,
+      "vehicle_class": "motorcycle",
+      "frame_index": 298,
+      "seconds": 9.93,
+      "reason": "motorcycle (track #217) travelling 103 degrees against the permitted direction of flow in lane \"right\", sustained over 24px of movement",
+      "confidence": 0.777
+    }
+  ]
+}

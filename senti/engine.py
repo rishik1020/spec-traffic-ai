@@ -105,10 +105,14 @@ class Engine:
         self._track_pos: dict[int, list] = {}
         self._pending: dict[str, dict] = {}
         self.violations: list[Violation] = []
+        # track id -> (keep boxed until this frame, rule name)
+        self._flash: dict[int, tuple] = {}
+        self.events: list[dict] = []
 
     # ---------------------------------------------------------------------
 
-    def run(self, source: str | int, max_frames: Optional[int] = None) -> list[Violation]:
+    def run(self, source: str | int, max_frames: Optional[int] = None,
+            annotate: Optional[str | Path] = None) -> list[Violation]:
         src = VideoSource(source, stride=int(self.config.get('stride', 1)),
                           max_frames=max_frames)
         info = src.open()
@@ -138,6 +142,15 @@ class Engine:
                   f'over arms {cal.approach_names}, recomputed every '
                   f'{self.controller.update_every_s:.0f}s -- ADVISORY ONLY')
 
+        writer = None
+        if annotate:
+            import cv2
+            Path(annotate).parent.mkdir(parents=True, exist_ok=True)
+            writer = cv2.VideoWriter(str(annotate),
+                                     cv2.VideoWriter_fourcc(*'mp4v'),
+                                     info.fps or 25.0, (info.width, info.height))
+            print(f'[senti] annotating -> {annotate}')
+
         for idx, ts, frame in src.frames():
             result = self.detector.track(frame, frame_index=idx, timestamp=ts)
             self.buffer.push(idx, ts, frame)
@@ -163,6 +176,8 @@ class Engine:
 
             self._drain(frame)
 
+            if writer is not None:
+                writer.write(self._draw(frame, result, context))
             if self.show:
                 self._preview(frame, result, context)
 
@@ -176,6 +191,12 @@ class Engine:
         for key, frames in self.buffer.flush_all().items():
             self._finalise(key, frames, None)
 
+        if writer is not None:
+            writer.release()
+            from .evidence.encode import to_browser_mp4
+            to_browser_mp4(annotate)
+            self._write_events(Path(annotate))
+
         if self.show:
             import cv2
             cv2.destroyAllWindows()
@@ -187,6 +208,23 @@ class Engine:
         return self.violations
 
     # ---------------------------------------------------------------------
+
+    def _write_events(self, video: Path) -> None:
+        """Timeline for the monitor screen, written beside the video.
+
+        The monitor needs to know WHEN each violation happened so clicking one
+        can seek the player to it. Reading that back out of the evidence
+        folders would work but couples the monitor to the evidence layout;
+        a timeline written next to the video it describes does not.
+        """
+        import json as _json
+        out = video.with_suffix('.events.json')
+        out.write_text(_json.dumps({
+            'camera_id': self.camera_id,
+            'video': video.name,
+            'events': self.events,
+        }, indent=2), encoding='utf-8')
+        print(f'[senti] {len(self.events)} event(s) -> {out}')
 
     def _signal_tick(self, ts: float) -> None:
         """Recompute the recommended timing plan, if one is due.
@@ -262,6 +300,14 @@ class Engine:
             'track_frames': self._track_frames.get(v.track_id, 0),
         }
         self.violations.append(v)
+        self._flash[v.track_id] = (v.frame_index + 60, v.rule_name)
+        self.events.append({
+            'evidence_id': f'{self.camera_id}_{v.key}',
+            'rule': v.rule_name, 'track_id': v.track_id,
+            'vehicle_class': v.cls_name, 'frame_index': v.frame_index,
+            'seconds': round(v.timestamp, 2), 'reason': v.reason,
+            'confidence': round(v.confidence, 3),
+        })
         print(f'  [!] {v.rule_name} track#{v.track_id} frame {v.frame_index}: {v.reason}')
 
     def _drain(self, frame) -> None:
@@ -315,6 +361,17 @@ class Engine:
 
     def _preview(self, frame, result: FrameResult, context: dict) -> None:
         import cv2
+        cv2.imshow('SPEC Traffic AI', self._draw(frame, result, context))
+        cv2.waitKey(1)
+
+    def _draw(self, frame, result: FrameResult, context: dict):
+        """Annotate one frame. Used by the live preview AND the video export.
+
+        Shared on purpose: an exported video that does not look exactly like
+        what the operator saw is a different artefact, and the one a reviewer
+        is shown later had better be the one the system actually produced.
+        """
+        import cv2
         import numpy as np
         import supervision as sv
 
@@ -356,5 +413,23 @@ class Engine:
                 cv2.putText(canvas, self.plans[-1].summary(), (10, y),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 220, 0), 1)
 
-        cv2.imshow('SPEC Traffic AI', canvas)
-        cv2.waitKey(1)
+        # A violation that already fired on this track stays boxed for a
+        # couple of seconds. The instant itself is one frame out of thirty --
+        # anyone watching at normal speed would miss it entirely.
+        for tid, (until, rule) in list(self._flash.items()):
+            if result.frame_index > until:
+                self._flash.pop(tid, None)
+                continue
+            d = result.by_track(tid)
+            if d is None:
+                continue
+            x1, y1, x2, y2 = (int(v) for v in d.xyxy)
+            cv2.rectangle(canvas, (x1, y1), (x2, y2), (60, 160, 240), 3)
+            tag = f'{rule.replace("_", " ").upper()} #{tid}'
+            (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+            cv2.rectangle(canvas, (x1, max(0, y1 - th - 8)),
+                          (x1 + tw + 8, y1), (60, 160, 240), -1)
+            cv2.putText(canvas, tag, (x1 + 4, max(12, y1 - 5)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20, 20, 20), 2)
+
+        return canvas

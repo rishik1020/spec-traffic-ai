@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor &middot; SPEC Traffic AI</title>
+<link rel="stylesheet" href="/static/style.css">
+</head><body>
+<header class="top">
+  <div><a class="brand" href="/">SPEC Traffic AI</a><span class="sub">Monitor &mdash; {{camera}}</span></div>
+  <div class="who"><a class="tab" href="/">Review queue</a> <span>{{officer}}</span></div>
+</header>
+<main class="monitor">
+  <section class="feed">
+    <div class="feed-head">
+      <form method="get" action="/monitor">
+        <select name="set" onchange="this.form.submit()">{{options}}</select>
+      </form>
+      <div class="stats">{{stats}}</div>
+    </div>
+    <video id="player" controls src="{{video}}"></video>
+    <p class="muted">Playback of the annotated run. Boxes are the ones the engine
+       drew; events are the ones the rules fired.</p>
+  </section>
+  <aside class="rail">
+    <h2>Violations</h2>
+    {{events}}
+  </aside>
+</main>
+<script>
+  // Clicking an event seeks the player to the moment it fired. The rail and
+  // the video are two views of one run, so they should never drift apart.
+  const player = document.getElementById('player');
+  document.querySelectorAll('li.ev').forEach(li => {
+    const t = parseFloat(li.dataset.t || '0');
+    li.querySelector('.ev-seek')?.addEventListener('click', () => {
+      if (!player) return;
+      player.currentTime = Math.max(0, t - 1.5);   // a beat of run-up
+      player.play();
+      document.querySelectorAll('li.ev').forEach(o => o.classList.remove('on'));
+      li.classList.add('on');
+    });
+  });
+  // Keep the rail in step while it plays.
+  player?.addEventListener('timeupdate', () => {
+    const now = player.currentTime;
+    let current = null;
+    document.querySelectorAll('li.ev').forEach(li => {
+      const t = parseFloat(li.dataset.t || '0');
+      if (t <= now + 0.25 && t >= now - 2.5) current = li;
+    });
+    document.querySelectorAll('li.ev').forEach(o => o.classList.toggle('live', o === current));
+  });
+</script>
+</body></html>

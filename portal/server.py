@@ -298,12 +298,32 @@ def challan_view(store: Store, eid: str, blind: bool, officer: str,
         media.append(f'''<figure class="clip"><video controls autoplay muted loop
             src="/file/{esc(eid)}/{esc(art['clip'])}"></video>
             <figcaption>Evidence clip &mdash; approach, violation, departure</figcaption></figure>''')
+    # The offending vehicle, boxed. Drawn as an overlay in PERCENTAGES rather
+    # than burned into the jpg: the original frame stays untouched evidence,
+    # and the box tracks the image at whatever width the browser renders it.
+    #
+    # Only on the violation frame. The approach frame is a DIFFERENT moment --
+    # the vehicle is somewhere else in it -- so a box at the violation
+    # coordinates would point at empty road and quietly mislead the officer.
+    box_html = ''
+    fw, fh = (pkg.get('frame_size') or [0, 0])[:2] or (0, 0)
+    bbox = v.get('bbox_xyxy') or []
+    if fw and fh and len(bbox) == 4:
+        x1, y1, x2, y2 = bbox
+        box_html = (
+            f'<span class="vbox" style="left:{100*x1/fw:.2f}%;top:{100*y1/fh:.2f}%;'
+            f'width:{100*(x2-x1)/fw:.2f}%;height:{100*(y2-y1)/fh:.2f}%">'
+            f'<i>{esc(str(rule).replace("_", " "))} &middot; #{esc(v.get("track_id", ""))}</i>'
+            f'</span>')
+
     stills = []
     for key, cap in (('violation_frame', 'Moment of violation'),
                      ('approach_frame', 'Approach')):
         if art.get(key):
-            stills.append(f'''<figure><img src="/file/{esc(eid)}/{esc(art[key])}"
-                alt="{esc(cap)}"><figcaption>{esc(cap)}</figcaption></figure>''')
+            overlay = box_html if key == 'violation_frame' else ''
+            stills.append(f'''<figure class="shot"><span class="shot-wrap">
+                <img src="/file/{esc(eid)}/{esc(art[key])}" alt="{esc(cap)}">{overlay}</span>
+                <figcaption>{esc(cap)}</figcaption></figure>''')
     if stills:
         media.append('<div class="stills">' + ''.join(stills) + '</div>')
     if not media:
@@ -410,6 +430,80 @@ def challan_view(store: Store, eid: str, blind: bool, officer: str,
     )
 
 
+def monitor_view(store: Store, monitor_root: Path, officer: str,
+                 which: str | None) -> str:
+    """Playback of an annotated run, with its violations as a timeline.
+
+    PLAYBACK, NOT LIVE, AND DELIBERATELY SO
+    Streaming a live decode into a browser is the expensive, fragile part, and
+    a demo that depends on a network camera staying up is a demo that fails in
+    front of a panel. The pipeline writes the annotated video it actually
+    produced plus the timeline of what it found, and this replays them
+    together. Nothing here is staged: the boxes are the ones the engine drew
+    and the events are the ones the rules fired. Live ingestion already runs
+    through the same code path when it is wanted.
+    """
+    sets = sorted(monitor_root.glob('*.events.json')) if monitor_root.is_dir() else []
+    if not sets:
+        empty = ('<div class="empty"><h3>No annotated run yet</h3>'
+                 '<p>Produce one with:</p><code>python run_senti.py --source '
+                 'data/videos/kolkata.mp4 --annotate data/monitor/kolkata.mp4'
+                 '</code></div>')
+        return render('monitor.html', officer=esc(officer), options='',
+                      video='', events=empty, stats='', camera='')
+
+    def stem_of(p):
+        return p.name[:-len('.events.json')]
+
+    chosen = next((p for p in sets if stem_of(p) == which), sets[0])
+    data = json.loads(chosen.read_text(encoding='utf-8'))
+    events = data.get('events', [])
+
+    # Which packages exist, so an event links to its challan when one was written
+    known = {p['evidence_id']: p for p in store.packages()}
+
+    rows = []
+    for e in events:
+        eid = e.get('evidence_id', '')
+        pkg = known.get(eid)
+        chip = status_chip(pkg) if pkg else '<span class="chip">no package</span>'
+        href = '/review/' + urllib.parse.quote(eid) if pkg else '#'
+        rows.append(
+            '<li class="ev" data-t="{t}">'
+            '<button class="ev-seek" type="button">'
+            '<span class="ev-t">{t:.1f}s</span>'
+            '<span class="ev-body"><span class="ev-rule">{rule}</span>'
+            '<span class="ev-meta">{veh} &middot; track #{tid}</span></span>'
+            '</button>'
+            '<a class="ev-open" href="{href}">{chip}</a></li>'.format(
+                t=float(e.get('seconds', 0)),
+                rule=esc(str(e.get('rule', '')).replace('_', ' ')),
+                veh=esc(e.get('vehicle_class', '')),
+                tid=esc(e.get('track_id', '')),
+                href=href, chip=chip))
+
+    options = ''.join(
+        '<option value="{v}"{sel}>{v}</option>'.format(
+            v=esc(stem_of(p)), sel=' selected' if p == chosen else '')
+        for p in sets)
+
+    by_rule = {}
+    for e in events:
+        by_rule[e.get('rule', '?')] = by_rule.get(e.get('rule', '?'), 0) + 1
+    stats = '<div class="stat"><b>{n}</b><span>violations</span></div>'.format(
+        n=len(events))
+    stats += ''.join(
+        '<div class="stat"><b>{n}</b><span>{r}</span></div>'.format(
+            n=n, r=esc(r.replace('_', ' ')))
+        for r, n in sorted(by_rule.items(), key=lambda kv: -kv[1]))
+
+    return render('monitor.html', officer=esc(officer), options=options,
+                  camera=esc(data.get('camera_id', '')),
+                  video='/monitor-file/' + esc(data.get('video', '')),
+                  events='<ul class="events">' + ''.join(rows) + '</ul>',
+                  stats=stats)
+
+
 # ---------------------------------------------------------------------------
 # HTTP
 # ---------------------------------------------------------------------------
@@ -417,6 +511,7 @@ def challan_view(store: Store, eid: str, blind: bool, officer: str,
 class Handler(BaseHTTPRequestHandler):
     store: Store
     schedule: Schedule
+    monitor_root: Path
     blind: bool = False
     shuffle: bool = False
 
@@ -453,6 +548,10 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith('/static/'):
             return self._static(STATIC / path[len('/static/'):])
 
+        if path.startswith('/monitor-file/'):
+            name = urllib.parse.unquote(path[len('/monitor-file/'):])
+            return self._static(self.monitor_root / name)
+
         if path.startswith('/file/'):
             parts = path[len('/file/'):].split('/', 1)
             if len(parts) != 2:
@@ -475,6 +574,9 @@ class Handler(BaseHTTPRequestHandler):
                 tab = 'pending'
             return self._html(queue_view(self.store, self.blind, officer,
                                          self.shuffle, tab))
+        if path == '/monitor':
+            return self._html(monitor_view(self.store, self.monitor_root,
+                                           officer, (qs.get('set') or [None])[0]))
         if path.startswith('/review/'):
             eid = urllib.parse.unquote(path[len('/review/'):])
             page = challan_view(self.store, eid, self.blind, officer, self.schedule)
@@ -530,7 +632,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             p = p.resolve()
             if not (str(p).startswith(str(STATIC.resolve()))
-                    or str(p).startswith(str(self.store.root.resolve()))):
+                    or str(p).startswith(str(self.store.root.resolve()))
+                    or str(p).startswith(str(self.monitor_root.resolve()))):
                 return self._html('<h1>403</h1>', 403)
             body = p.read_bytes()
         except (OSError, ValueError):
@@ -544,6 +647,7 @@ def main() -> None:
     ap.add_argument('--evidence', default=str(PROJECT / 'data' / 'evidence'))
     ap.add_argument('--review-dir', default=str(PROJECT / 'data' / 'review'))
     ap.add_argument('--penalties', default=str(PROJECT / 'config' / 'penalties.yaml'))
+    ap.add_argument('--monitor-dir', default=str(PROJECT / 'data' / 'monitor'))
     ap.add_argument('--blind', action='store_true',
                     help='hide the defensibility score (EDS validation runs)')
     ap.add_argument('--shuffle', action='store_true',
@@ -552,6 +656,7 @@ def main() -> None:
 
     Handler.store = Store(Path(args.evidence), Path(args.review_dir))
     Handler.schedule = Schedule.load(args.penalties)
+    Handler.monitor_root = Path(args.monitor_dir)
     Handler.blind = args.blind
     Handler.shuffle = args.shuffle
 

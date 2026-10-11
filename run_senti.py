@@ -25,6 +25,8 @@ def main() -> None:
                     help='cuda | cpu. Use cpu to stay off a GPU busy training.')
     ap.add_argument('--max-frames', type=int, default=None)
     ap.add_argument('--show', action='store_true')
+    ap.add_argument('--annotate', default=None,
+                    help='write an annotated mp4 + .events.json for the monitor screen')
     ap.add_argument('--list-rules', action='store_true')
     args = ap.parse_args()
 
@@ -56,7 +58,8 @@ def main() -> None:
         show=args.show,
         device=args.device,
     )
-    violations = engine.run(source, max_frames=args.max_frames)
+    violations = engine.run(source, max_frames=args.max_frames,
+                            annotate=args.annotate)
 
     if violations:
         print('\nsummary:')

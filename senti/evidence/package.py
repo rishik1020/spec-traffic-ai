@@ -204,6 +204,11 @@ class EvidenceWriter:
                 'detection_confidence': round(violation.confidence, 4),
                 'bbox_xyxy': [round(v, 1) for v in violation.xyxy],
             },
+            # Frame dimensions travel WITH the box. A bounding box in pixels
+            # is meaningless to anything that does not already know how big the
+            # frame was, and the portal draws that box over an image scaled to
+            # whatever width the browser gave it.
+            'frame_size': [int(shape[1]), int(shape[0])],
             'timing': {
                 'frame_index': violation.frame_index,
                 'stream_seconds': round(violation.timestamp, 3),
