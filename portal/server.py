@@ -59,6 +59,7 @@ import random
 import re
 import sys
 import urllib.parse
+from collections import Counter
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -430,6 +431,145 @@ def challan_view(store: Store, eid: str, blind: bool, officer: str,
     )
 
 
+CLASS_CHIPS = [('motorcycle', 'Bike'), ('auto_rickshaw', 'Auto'), ('car', 'Car'),
+               ('bus', 'Bus'), ('truck', 'Truck'),
+               ('commercial_vehicle', 'LCV'), ('bicycle', 'Cycle')]
+
+
+def gallery_view(store: Store, blind: bool, officer: str, qs: dict,
+                 schedule: Schedule) -> str:
+    """Captured vehicles as cards, each built around its number plate.
+
+    WHY THE PLATE IS THE CENTREPIECE AND NOT THE CLIP
+    A challan is issued to a vehicle, so the plate is the one field that
+    decides whether a detection can be enforced at all. The queue view is for
+    JUDGING a violation; this one is for IDENTIFYING the vehicle, and the two
+    want different layouts. Here the plate crop is the largest thing on the
+    card, upscaled, because an officer confirming characters should not be
+    squinting.
+
+    WHERE A PLATE WAS NEVER READ, THE CARD SAYS SO
+    An empty plate field is not a cosmetic gap, it is the difference between
+    evidence and an anecdote, so it is stated plainly rather than left blank.
+    """
+    pkgs = store.packages()
+
+    want_cls = qs.get('cls', [''])[0]
+    want_rule = qs.get('rule', [''])[0]
+    want_status = qs.get('status', [''])[0]
+    search = qs.get('q', [''])[0].strip().upper().replace(' ', '')
+
+    counts = Counter()
+    rules_seen = Counter()
+    for p in pkgs:
+        counts[(p.get('violation') or {}).get('vehicle_class', '?')] += 1
+        rules_seen[(p.get('violation') or {}).get('rule', '?')] += 1
+
+    def keep(p):
+        v = p.get('violation') or {}
+        rev = p.get('review') or {}
+        if want_cls and v.get('vehicle_class') != want_cls:
+            return False
+        if want_rule and v.get('rule') != want_rule:
+            return False
+        if want_status and rev.get('status', 'pending') != want_status:
+            return False
+        if search:
+            plate = (rev.get('plate_number') or '').upper().replace(' ', '')
+            if search not in plate and search not in p['evidence_id'].upper():
+                return False
+        return True
+
+    shown = [p for p in pkgs if keep(p)]
+    shown.sort(key=lambda p: -(p.get('defensibility') or {}).get('score', 0))
+
+    # -- the class counter strip, as in the reference system ---------------
+    chips = []
+    for key, label in CLASS_CHIPS:
+        n = counts.get(key, 0)
+        if not n and want_cls != key:
+            continue
+        on = ' on' if want_cls == key else ''
+        chips.append(
+            '<a class="ccount{on}" href="?{q}"><span>{label}</span><b>{n}</b></a>'
+            .format(on=on, label=esc(label), n=n,
+                    q=urllib.parse.urlencode({k: v for k, v in
+                        {'cls': '' if want_cls == key else key,
+                         'rule': want_rule, 'status': want_status,
+                         'q': search}.items() if v})))
+    if want_cls or want_rule or want_status or search:
+        chips.append('<a class="ccount clear" href="/gallery">Clear</a>')
+
+    rule_opts = ''.join(
+        '<option value="{r}"{sel}>{lab} ({n})</option>'.format(
+            r=esc(r), lab=esc(r.replace('_', ' ')), n=n,
+            sel=' selected' if want_rule == r else '')
+        for r, n in sorted(rules_seen.items()))
+    status_opts = ''.join(
+        '<option value="{s}"{sel}>{lab}</option>'.format(
+            s=s, lab=s.title() if s else 'Any status',
+            sel=' selected' if want_status == s else '')
+        for s in ('', 'pending', 'escalated', 'approved', 'rejected'))
+
+    # -- the cards ---------------------------------------------------------
+    cards = []
+    for p in shown:
+        v = p.get('violation') or {}
+        rev = p.get('review') or {}
+        art = p.get('artifacts') or {}
+        eid = p['evidence_id']
+        pen = schedule.for_rule(v.get('rule', ''))
+
+        shot = (f'<img class="shot" src="/file/{esc(eid)}/{esc(art["violation_frame"])}" alt="">'
+                if art.get('violation_frame') else '<div class="shot none">no frame</div>')
+
+        if art.get('plate'):
+            plate_img = f'<img class="plate" src="/file/{esc(eid)}/{esc(art["plate"])}" alt="plate">'
+        else:
+            plate_img = ('<div class="plate none">no plate found<small>'
+                         'this vehicle cannot be identified</small></div>')
+
+        number = rev.get('plate_number')
+        if number:
+            bar = f'<div class="pnum read">{esc(number)}</div>'
+        else:
+            bar = '<div class="pnum unread">not read yet</div>'
+
+        readability = (p.get('context') or {}).get('plate_readability')
+        meter = ''
+        if readability is not None and art.get('plate'):
+            pct = float(readability) * 100
+            tone = 'good' if pct >= 60 else ('fair' if pct >= 25 else 'poor')
+            meter = (f'<div class="readrow"><span>readable</span>'
+                     f'<span class="readbar {tone}"><i style="width:{pct:.0f}%"></i></span>'
+                     f'<b>{pct:.0f}%</b></div>')
+
+        cards.append(f'''
+          <article class="vcard">
+            <a class="vshot" href="/review/{esc(eid)}">{shot}
+              <span class="vrule">{esc(str(v.get("rule","")).replace("_"," "))}</span>
+              {eds_chip(p, blind)}</a>
+            <div class="vplate">{plate_img}</div>
+            {bar}
+            {meter}
+            <div class="vfoot">
+              <span>{esc(v.get("vehicle_class",""))} &middot; {esc(pen.display_amount)}</span>
+              {status_chip(p)}
+            </div>
+            <a class="vmore" href="/review/{esc(eid)}">View more</a>
+          </article>''')
+
+    if not cards:
+        cards = ['<div class="empty"><h3>No captures match</h3>'
+                 '<p>Clear the filters, or run the pipeline over some footage.</p></div>']
+
+    return render('gallery.html', officer=esc(officer),
+                  blind_banner=blind_banner(blind), chips=''.join(chips),
+                  rule_opts=rule_opts, status_opts=status_opts,
+                  search=esc(search), shown=len(shown), total=len(pkgs),
+                  cards=''.join(cards))
+
+
 def monitor_view(store: Store, monitor_root: Path, officer: str,
                  which: str | None) -> str:
     """Playback of an annotated run, with its violations as a timeline.
@@ -574,6 +714,9 @@ class Handler(BaseHTTPRequestHandler):
                 tab = 'pending'
             return self._html(queue_view(self.store, self.blind, officer,
                                          self.shuffle, tab))
+        if path == '/gallery':
+            return self._html(gallery_view(self.store, self.blind, officer,
+                                           qs, self.schedule))
         if path == '/monitor':
             return self._html(monitor_view(self.store, self.monitor_root,
                                            officer, (qs.get('set') or [None])[0]))

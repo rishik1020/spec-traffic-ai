@@ -442,6 +442,15 @@ class Engine:
                 cv2.putText(canvas, self.plans[-1].summary(), (10, y),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 220, 0), 1)
 
+        # Plates in RED, over everything else. The colour language follows the
+        # Kerala MVD cameras this is modelled on: green is the vehicle under
+        # judgement, red is the thing that identifies who gets the challan.
+        for d in result.detections:
+            if d.plate_xyxy is None:
+                continue
+            px1, py1, px2, py2 = (int(v) for v in d.plate_xyxy)
+            cv2.rectangle(canvas, (px1, py1), (px2, py2), (40, 40, 230), 2)
+
         # A violation that already fired on this track stays boxed for a
         # couple of seconds. The instant itself is one frame out of thirty --
         # anyone watching at normal speed would miss it entirely.
@@ -453,11 +462,11 @@ class Engine:
             if d is None:
                 continue
             x1, y1, x2, y2 = (int(v) for v in d.xyxy)
-            cv2.rectangle(canvas, (x1, y1), (x2, y2), (60, 160, 240), 3)
+            cv2.rectangle(canvas, (x1, y1), (x2, y2), (80, 220, 80), 3)
             tag = f'{rule.replace("_", " ").upper()} #{tid}'
             (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
             cv2.rectangle(canvas, (x1, max(0, y1 - th - 8)),
-                          (x1 + tw + 8, y1), (60, 160, 240), -1)
+                          (x1 + tw + 8, y1), (80, 220, 80), -1)
             cv2.putText(canvas, tag, (x1 + 4, max(12, y1 - 5)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20, 20, 20), 2)
 

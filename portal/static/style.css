@@ -334,3 +334,84 @@ button.mid { background: color-mix(in srgb, var(--accent) 18%, var(--panel-2));
   .monitor { grid-template-columns: 1fr; }
   .rail { position: static; max-height: none; }
 }
+
+/* ===================================================================
+ * captured-vehicle gallery
+ *
+ * Modelled on the Kerala MVD operator screens: a counter strip by vehicle
+ * class, a filter row, then a grid of cards each built around the number
+ * plate. The plate is the largest thing on a card because it is the one
+ * field that decides whether a detection can become a challan at all.
+ * =================================================================== */
+
+.ccounts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.ccount {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); font-size: .8rem;
+}
+.ccount span { color: var(--ink-soft); text-transform: uppercase;
+               letter-spacing: .1em; font-size: .7rem; }
+.ccount b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.ccount:hover { border-color: var(--ink-faint); }
+.ccount.on { border-color: var(--accent); background: var(--panel-2); }
+.ccount.clear { color: var(--ink-faint); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+           margin-bottom: 10px; }
+.filters input[type="search"] { flex: 1 1 15rem; width: auto; }
+.filters select { width: auto; min-width: 10rem; }
+.filters button { flex: 0 0 auto; min-width: 6rem; }
+
+.vgrid { display: grid; gap: 14px; margin-top: 16px;
+         grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+
+.vcard { background: var(--panel); border: 1px solid var(--line);
+         border-radius: var(--radius); overflow: hidden;
+         display: flex; flex-direction: column; }
+.vcard:hover { border-color: var(--accent); }
+
+.vshot { position: relative; display: block; line-height: 0; }
+.vshot .shot { width: 100%; height: 148px; object-fit: cover; display: block; }
+.shot.none { height: 148px; display: grid; place-items: center;
+             background: var(--sunk); color: var(--ink-faint); font-size: .78rem; }
+.vrule {
+  position: absolute; left: 8px; top: 8px; text-transform: capitalize;
+  background: rgba(10,16,30,.82); color: var(--ink); font-size: .7rem;
+  font-weight: 600; padding: 3px 8px; border-radius: 3px;
+}
+.vshot .chip { position: absolute; right: 8px; top: 8px; }
+
+/* the plate, deliberately the biggest element on the card */
+.vplate { background: #0a0f1c; padding: 10px; display: grid; place-items: center;
+          min-height: 76px; border-top: 1px solid var(--line); }
+.vplate .plate { max-width: 100%; max-height: 74px; image-rendering: auto;
+                 border-radius: 2px; }
+.plate.none { color: var(--ink-faint); font-size: .76rem; text-align: center;
+              line-height: 1.5; }
+.plate.none small { display: block; color: var(--warn); font-size: .68rem; }
+
+.pnum { font-family: var(--mono); font-size: .95rem; font-weight: 700;
+        letter-spacing: .09em; text-align: center; padding: 7px 10px; }
+.pnum.read { background: color-mix(in srgb, var(--no) 70%, #000); color: #fff; }
+.pnum.unread { background: var(--sunk); color: var(--ink-faint);
+               font-family: var(--sans); font-weight: 500; letter-spacing: 0;
+               font-size: .78rem; }
+
+.readrow { display: grid; grid-template-columns: 4.6rem 1fr 2.4rem; gap: 8px;
+           align-items: center; padding: 8px 12px; font-size: .72rem;
+           color: var(--ink-faint); }
+.readbar { background: var(--sunk); height: 5px; border-radius: 3px; overflow: hidden; }
+.readbar i { display: block; height: 100%; }
+.readbar.good i { background: var(--ok); }
+.readbar.fair i { background: var(--warn); }
+.readbar.poor i { background: var(--no); }
+.readrow b { font-family: var(--mono); text-align: right; color: var(--ink-soft); }
+
+.vfoot { display: flex; justify-content: space-between; align-items: center;
+         gap: 8px; padding: 9px 12px; font-size: .76rem; color: var(--ink-soft);
+         border-top: 1px solid var(--line); }
+.vmore { display: block; text-align: center; padding: 9px;
+         background: var(--panel-2); border-top: 1px solid var(--line);
+         font-size: .8rem; font-weight: 600; color: var(--accent); }
+.vmore:hover { background: color-mix(in srgb, var(--accent) 16%, var(--panel-2)); }

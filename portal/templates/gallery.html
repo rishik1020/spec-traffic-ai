@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Captured vehicles &middot; SPEC Traffic AI</title>
+<link rel="stylesheet" href="/static/style.css">
+</head><body>
+<header class="top">
+  <div><a class="brand" href="/gallery">SPEC Traffic AI</a><span class="sub">Captured vehicles</span></div>
+  <div class="who">
+    <a class="tab" href="/">Review queue</a>
+    <a class="tab" href="/monitor">Monitor</a>
+    <span>{{officer}}</span>
+  </div>
+</header>
+{{blind_banner}}
+<main>
+  <div class="ccounts">{{chips}}</div>
+
+  <form class="filters" method="get" action="/gallery">
+    <input type="search" name="q" value="{{search}}" placeholder="Search plate number…">
+    <select name="rule"><option value="">Any violation</option>{{rule_opts}}</select>
+    <select name="status">{{status_opts}}</select>
+    <button type="submit">Apply</button>
+    <a class="tab" href="/gallery">Clear</a>
+  </form>
+
+  <p class="muted">Showing {{shown}} of {{total}} captures</p>
+  <div class="vgrid">{{cards}}</div>
+</main>
+</body></html>
