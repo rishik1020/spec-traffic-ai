@@ -1,0 +1,33 @@
+camera_id: kolkata
+weights: runs/driveindia/weights/best.pt
+imgsz: 1280
+stride: 1
+evidence:
+  pre_seconds: 1.5
+  post_seconds: 1.5
+  downscale: 0.5
+calibration:
+  lanes:
+  - name: nearside
+    polygon:
+    - - 0
+      - 480
+    - - 358
+      - 480
+    - - 358
+      - 1275
+    - - 0
+      - 1275
+    heading:
+    - 0.42
+    - -0.91
+    approach: west
+  stop_lines:
+  - name: s1
+    line:
+    - - 0
+      - 520
+    - - 715
+      - 520
+rules:
+  wrong_way: {}
