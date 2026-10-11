@@ -174,10 +174,24 @@ class PlateDetector:
         spread = float(np.percentile(gray, 95) - np.percentile(gray, 5))
         c_score = max(0.0, min(1.0, spread / 90.0))
 
-        # Width gates the rest: a 20px plate is unreadable no matter how sharp
-        # and contrasty those 20 pixels are.
-        score = w_score * (0.45 * s_score + 0.35 * c_score + 0.20)
+        # Width gates legibility: a 20px plate is unreadable no matter how
+        # sharp and contrasty those 20 pixels are.
+        legible = w_score * (0.45 * s_score + 0.35 * c_score + 0.20)
+
+        # ...and the detector's confidence gates the whole thing, because
+        # legibility alone measures the wrong property. Tested against real
+        # Bengaluru enforcement frames, the highest-scoring "plate" in the
+        # sample was the BENGALURU SARIGE livery panel on a city bus: large,
+        # sharp, high-contrast, perfectly legible, and not a number plate.
+        # Scoring that 1.00 would put bus paintwork in front of an officer as
+        # the thing identifying the vehicle to be fined.
+        #
+        # Multiplying is the honest combination. Either half failing should
+        # sink the score: unsure it is a plate, or sure but unreadable, both
+        # mean the evidence cannot identify anybody.
+        score = float(det.plate_conf) * legible
         return round(max(0.0, min(1.0, score)), 3), {
+            'legibility': round(legible, 3),
             'plate_px_width': px_w,
             'detector_conf': round(det.plate_conf, 3),
             'sharpness': round(sharp, 1),
