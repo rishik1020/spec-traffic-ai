@@ -14,6 +14,14 @@ CONTROLS
                              signal timing measures congestion against; leave it
                              blank on a highway, where there is nothing to time.
     S      stop-line mode -- click 2 points.
+    G      signal head     -- click 2 opposite corners of the box around the
+                             traffic light. Draw it ONCE and the signal state is
+                             read by colour from that fixed crop, instead of
+                             asking the detector to re-find the lamp every frame.
+                             On a real night-time intersection the detector found
+                             NO traffic light at all while HSV read the drawn box
+                             as red at 55% of pixels -- so for any rule that
+                             depends on the signal, draw it.
     H      homography     -- click 4 road-surface points, then type their real
                              world metre coordinates in the terminal.
     D      done with the current shape
@@ -42,7 +50,9 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 MODE_LANE, MODE_STOP, MODE_HOM = 'lane', 'stop', 'homography'
-COL = {MODE_LANE: (0, 220, 0), MODE_STOP: (0, 165, 255), MODE_HOM: (255, 120, 0)}
+MODE_SIGNAL = 'signal'
+COL = {MODE_LANE: (0, 220, 0), MODE_STOP: (0, 165, 255),
+       MODE_HOM: (255, 120, 0), MODE_SIGNAL: (0, 0, 255)}
 
 
 class Calibrator:
@@ -55,6 +65,7 @@ class Calibrator:
         self.stops: list[dict] = []
         self.hom_src: list[tuple[int, int]] = []
         self.hom_dst: list[tuple[float, float]] = []
+        self.signal_head: tuple[int, int, int, int] | None = None
         self.awaiting_heading: dict | None = None
         self.msg = ''
 
@@ -90,6 +101,8 @@ class Calibrator:
         self.pending.append((x, y))
         if self.mode == MODE_HOM and len(self.pending) == 4:
             self._finish()
+        elif self.mode == MODE_SIGNAL and len(self.pending) == 2:
+            self._finish()
 
     # -- shape completion --------------------------------------------------
 
@@ -102,6 +115,16 @@ class Calibrator:
             self.pending = []
             self.awaiting_heading = lane
             self.msg = 'now click ONE point in the direction traffic may travel'
+
+        elif self.mode == MODE_SIGNAL:
+            if len(self.pending) != 2:
+                self.msg = 'click two opposite corners of the signal head'
+                return
+            (ax, ay), (bx, by) = self.pending
+            self.signal_head = (min(ax, bx), min(ay, by),
+                                max(ax, bx), max(ay, by))
+            self.pending = []
+            self.msg = f'signal head set to {self.signal_head}'
 
         elif self.mode == MODE_STOP:
             if len(self.pending) != 2:
@@ -203,6 +226,8 @@ class Calibrator:
             d['stop_lines'] = [{'name': s['name'],
                                 'line': [[int(x), int(y)] for x, y in s['line']]}
                                for s in self.stops]
+        if self.signal_head:
+            d['signal_head'] = [int(v) for v in self.signal_head]
         if self.hom_src and len(self.hom_dst) == 4:
             d['homography'] = {'src': [[int(x), int(y)] for x, y in self.hom_src],
                                'dst_m': [[float(a), float(b)] for a, b in self.hom_dst]}
@@ -247,6 +272,7 @@ def main() -> None:
         elif k == ord('l'): cal.mode = MODE_LANE;  cal.pending = []
         elif k == ord('s'): cal.mode = MODE_STOP;  cal.pending = []
         elif k == ord('h'): cal.mode = MODE_HOM;   cal.pending = []
+        elif k == ord('g'): cal.mode = MODE_SIGNAL; cal.pending = []
         elif k == ord('d'): cal._finish()
         elif k == ord('u'): cal._undo()
         elif k == ord('c'):

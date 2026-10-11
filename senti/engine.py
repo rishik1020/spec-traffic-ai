@@ -27,7 +27,7 @@ from typing import Optional
 import yaml
 
 from .calibration import Calibration
-from .core.types import FrameResult
+from .core.types import Detection, FrameResult
 from .evidence.buffer import RollingBuffer
 from .evidence.package import EvidenceWriter
 from .ingest.source import VideoSource
@@ -222,14 +222,30 @@ class Engine:
         separate rules would triple the work and could yield three answers.
         """
         ctx: dict = {'signal_state': 'unknown', 'signal_score': 0.0,
+                     'signal_source': 'none',
                      'total_pcu': result.total_pcu,
                      'calibration': self.calibration}
-        lights = result.traffic_lights
-        if lights:
-            biggest = max(lights, key=lambda d: d.area)
+
+        head = self.calibration.signal_head
+        if head is not None:
+            # A drawn signal head beats a detected one. The lamp is bolted to a
+            # pole, so its position is known once and forever, and relying on
+            # the detector to re-find it every frame fails exactly when it
+            # matters -- at night, in rain, at distance.
+            x1, y1, x2, y2 = head
+            box = Detection(cls_name='traffic_light', confidence=1.0,
+                            xyxy=(float(x1), float(y1), float(x2), float(y2)))
+            state, score = read_signal_state(frame, box)
+            ctx.update(signal_state=state, signal_score=score,
+                       signal_source='calibrated')
+        elif result.traffic_lights:
+            # Fall back to the biggest detected head. On a junction camera
+            # seeing several arms this can be the WRONG signal -- draw the head
+            # instead whenever a rule depends on it.
+            biggest = max(result.traffic_lights, key=lambda d: d.area)
             state, score = read_signal_state(frame, biggest)
-            ctx['signal_state'] = state
-            ctx['signal_score'] = score
+            ctx.update(signal_state=state, signal_score=score,
+                       signal_source='detected')
         return ctx
 
     def _on_violation(self, v: Violation, rule: Rule, frame, result, context) -> None:

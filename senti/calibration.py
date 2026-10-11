@@ -161,6 +161,21 @@ class Calibration:
     lanes: list[Lane] = field(default_factory=list)
     stop_lines: list[StopLine] = field(default_factory=list)
     homography: Optional[Homography] = None
+    # Where the signal head sits in frame, as [x1, y1, x2, y2].
+    #
+    # WHY THIS IS DRAWN RATHER THAN DETECTED
+    # A signal head is bolted to a pole. It does not move, so detecting it
+    # sixty times a second is both wasted work and fragile: the first live test
+    # ran against a real intersection at night and the detector found no
+    # traffic light at all, which would have left every signal-dependent rule
+    # abstaining forever on a camera where the signal was plainly visible to a
+    # human. Drawing the box once removes the dependency entirely -- the
+    # detector locates vehicles, and the operator locates the lamp.
+    #
+    # This is also what commercial ITMS installations do, and it is why the
+    # state read is still HSV thresholding rather than a classifier: a fixed
+    # crop plus a colour threshold is explainable in a contested hearing.
+    signal_head: Optional[tuple[int, int, int, int]] = None
 
     # -- construction ------------------------------------------------------
 
@@ -185,7 +200,9 @@ class Calibration:
         h = cfg.get('homography')
         hom = Homography(src=[tuple(p) for p in h['src']],
                          dst_m=[tuple(p) for p in h['dst_m']]) if h else None
-        return cls(lanes=lanes, stop_lines=stops, homography=hom)
+        sh = cfg.get('signal_head')
+        head = tuple(int(v) for v in sh) if sh else None
+        return cls(lanes=lanes, stop_lines=stops, homography=hom, signal_head=head)
 
     def to_dict(self) -> dict:
         d: dict = {'lanes': [
@@ -205,6 +222,8 @@ class Calibration:
                  **({'lanes': s.lanes} if s.lanes else {})}
                 for s in self.stop_lines
             ]
+        if self.signal_head:
+            d['signal_head'] = [int(v) for v in self.signal_head]
         if self.homography:
             d['homography'] = {
                 'src': [[int(x), int(y)] for x, y in self.homography.src],
