@@ -30,6 +30,35 @@ CLASS_NAMES: dict[int, str] = {
     27: 'undocumented_27',
 }
 
+# Other checkpoints name the same vehicles differently. Rules are written
+# against the names below, so anything else is normalised ON THE WAY IN by
+# `canonical()` -- a rule should never have to know which model produced a
+# detection.
+#
+# UVH-26 (IISc, Bengaluru Safe-City CCTV) splits cars into four body styles and
+# uses hyphenated wheeler names. It has NO pedestrian class at all, which is
+# why `triple_riding` and anything needing people cannot run on it.
+CLASS_ALIASES: dict[str, str] = {
+    # UVH-26 -> ours
+    'Hatchback': 'car', 'Sedan': 'car', 'SUV': 'car', 'MUV': 'car',
+    'Van': 'car',
+    'Two-wheeler': 'motorcycle', 'Three-wheeler': 'auto_rickshaw',
+    'Bus': 'bus', 'Mini-bus': 'bus', 'Truck': 'truck',
+    'LCV': 'commercial_vehicle', 'tempo-traveller': 'commercial_vehicle',
+    'Tempo-traveller': 'commercial_vehicle',
+    'bicycle': 'bicycle', 'Bicycle': 'bicycle',
+    # `Others` is deliberately dropped rather than guessed into a class a rule
+    # might then act on.
+}
+
+
+def canonical(name: str | None) -> str | None:
+    """The name our rules speak, whatever the checkpoint called it."""
+    if name is None:
+        return None
+    return CLASS_ALIASES.get(name, name)
+
+
 # Zero or near-zero support in the released subset. The model emits them but
 # never learned them -- never build a rule on one of these.
 UNRELIABLE: frozenset[str] = frozenset({

@@ -1,5 +1,7 @@
 .env
 *.pt
+# third-party weights -- fetched from HuggingFace, not ours to redistribute
+models/uvh26/
 datasets/
 runs/
 weights/

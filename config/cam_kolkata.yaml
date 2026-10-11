@@ -1,5 +1,15 @@
 camera_id: kolkata
-weights: runs/driveindia/weights/best.pt
+# UVH-26, not our DriveIndia fine-tune. On this very footage, same frame,
+# same confidence threshold: ours found 11 vehicles, UVH-26 found 52 -- and
+# ours labelled a black SUV and a white sedan as `bus` at 0.91 and 0.85, which
+# is the viewpoint domain gap in a single image. UVH-26 is trained on 26,646
+# frames from 2,800 Bengaluru Safe-City CCTV cameras, so an elevated view is
+# its native domain rather than a shift away from it.
+#
+# COST: UVH-26 has 14 vehicle classes and NO pedestrian. Nothing enabled on
+# this camera needs one. Any camera running triple_riding, or wanting
+# pedestrians in the evidence, must stay on the DriveIndia weights.
+weights: models/uvh26/UVH-26-MV-YOLOv11-S.pt
 imgsz: 1280
 stride: 1
 evidence:

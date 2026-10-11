@@ -23,7 +23,8 @@ import numpy as np
 import supervision as sv
 from ultralytics import YOLO
 
-from ..core.types import CLASS_NAMES, UNRELIABLE, Detection, FrameResult
+from ..core.types import (CLASS_NAMES, UNRELIABLE, Detection, FrameResult,
+                          canonical)
 
 # Per-class confidence floors. Small, frequently-occluded objects in dense
 # traffic need a looser threshold or they vanish; large unambiguous ones can
@@ -151,7 +152,7 @@ class TrafficDetector:
 
         if dets.confidence is not None and dets.class_id is not None:
             thresholds = np.array([
-                CLASS_CONF.get(self.names.get(int(c), ''), DEFAULT_CONF)
+                CLASS_CONF.get(canonical(self.names.get(int(c), '')), DEFAULT_CONF)
                 for c in dets.class_id
             ])
             keep &= dets.confidence >= thresholds
@@ -170,7 +171,9 @@ class TrafficDetector:
 
         for i in range(len(dets)):
             cid = int(dets.class_id[i]) if dets.class_id is not None else -1
-            name = self.names.get(cid)
+            # Normalise here, once, so no rule downstream has to know which
+            # checkpoint produced the detection.
+            name = canonical(self.names.get(cid))
             if name is None:
                 continue
             if self.drop_unreliable and name in UNRELIABLE:
