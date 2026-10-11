@@ -71,29 +71,73 @@ def probe(url: str, detector, frames: int = 3) -> tuple[float, float]:
 
 
 def record(url: str, out: Path, seconds: int) -> bool:
-    out.parent.mkdir(parents=True, exist_ok=True)
-    part = out.with_suffix('.part.mp4')
-    cmd = ['yt-dlp', '--no-warnings', '-q',
-           '-f', 'best[height<=720]/best',
-           '--downloader', 'ffmpeg',
-           '--downloader-args', f'ffmpeg_i:-t {seconds}',
-           '-o', str(part), url]
-    subprocess.run(cmd, capture_output=True, text=True, timeout=seconds + 180)
+    """Capture `seconds` of live video by reading frames, not by piping.
 
-    # yt-dlp may leave the file under a slightly different name on failure
-    src = part if part.is_file() else part.with_suffix('')
-    if not src.is_file() or src.stat().st_size < 500_000:
-        for leftover in part.parent.glob(part.stem + '*'):
-            leftover.unlink(missing_ok=True)
+    THIRD APPROACH, AND THE FIRST ONE THAT SURVIVES THIS STREAM
+    yt-dlp driving ffmpeg hung at 2 MB -- process alive, writing nothing --
+    because its downloader passes no reconnect flags and a dropped HLS segment
+    simply blocks. Driving ffmpeg directly with reconnect and rw_timeout failed
+    differently: all three clips hit the timeout and left NOTHING, because
+    `-movflags +faststart` writes the moov atom at the end, so a killed ffmpeg
+    leaves an unplayable stub. Optimising for instant streamability threw away
+    the partial-capture safety net.
+
+    Reading frames through OpenCV avoids both. It is the same path the engine
+    already uses against this stream successfully, every decoded frame is
+    banked immediately, and a stall is visible as failed reads rather than as
+    silence -- so the capture ends with whatever it got instead of nothing.
+
+    Written as mp4v because that is what OpenCV can write reliably, then
+    transcoded to browser-playable H.264 once the frames are safely on disk.
+    """
+    import cv2
+
+    from senti.evidence.encode import to_browser_mp4
+    from senti.ingest.source import resolve_source
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        direct = resolve_source(url)
+    except Exception as e:
+        print(f'    resolve failed: {str(e)[:70]}')
         return False
 
-    # Remux: an interrupted capture has no moov atom and will not open. This
-    # also makes it H.264/faststart so the portal can play it.
-    r = subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(src),
-                        '-c', 'copy', '-movflags', '+faststart', str(out)],
-                       capture_output=True, text=True, timeout=300)
-    src.unlink(missing_ok=True)
-    return r.returncode == 0 and out.is_file() and out.stat().st_size > 100_000
+    cap = cv2.VideoCapture(direct, cv2.CAP_FFMPEG)
+    if not cap.isOpened():
+        print('    could not open stream')
+        return False
+
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    if not (1 < fps < 121):
+        fps = 30.0
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    want = int(seconds * fps)
+
+    writer = cv2.VideoWriter(str(out), cv2.VideoWriter_fourcc(*'mp4v'),
+                             fps, (w, h))
+    got, misses = 0, 0
+    while got < want:
+        ok, frame = cap.read()
+        if not ok:
+            misses += 1
+            # a live stream drops the odd frame; a dead one drops every frame
+            if misses > 60:
+                print(f'    stream stalled after {got/fps:.0f}s -- keeping it')
+                break
+            continue
+        misses = 0
+        writer.write(frame)
+        got += 1
+    writer.release()
+    cap.release()
+
+    if got < fps * 10:          # under ten seconds is not worth calibrating on
+        out.unlink(missing_ok=True)
+        return False
+    to_browser_mp4(out)
+    print(f'    {got} frames, {got/fps:.0f}s')
+    return out.is_file() and out.stat().st_size > 300_000
 
 
 def main() -> None:
