@@ -7,7 +7,15 @@
 camera_id: demo01
 location: "Demo junction, Hyderabad"
 
-weights: runs/driveindia/weights/best.pt
+# UVH-26 rather than our DriveIndia fine-tune. Measured on kolkata.mp4, same
+# frame, same 0.35 threshold: ours 11 boxes, UVH-26 52 -- and ours called a
+# black SUV and a white sedan `bus` at 0.91 and 0.85. UVH-26 is trained on
+# 2,800 Bengaluru Safe-City CCTV cameras, so an elevated enforcement view is
+# its native domain. Fetch with: python scripts/fetch_uvh26.py
+#
+# It has no pedestrian class, which only matters to triple_riding. No rule
+# enabled on this camera reads pedestrians.
+weights: models/uvh26/UVH-26-MV-YOLOv11-S.pt
 imgsz: 640
 stride: 1              # process every Nth frame; raise to hit real-time budget
 
