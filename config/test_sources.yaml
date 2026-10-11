@@ -1,0 +1,248 @@
+# SPEC Traffic AI -- candidate test sources
+#
+# ============================================================================
+# THIS FILE IS A LIST OF CANDIDATES, NOT A LIST OF WORKING SOURCES.
+#
+# Live streams end, channels go private, aggregators rotate their feeds, and a
+# camera that is perfect at noon is useless at midnight. Any "these all work"
+# list is wrong within a week. Run the checker to find out what is usable TODAY:
+#
+#     python scripts/check_sources.py
+#     python scripts/check_sources.py --only live --save-probes
+#
+# It reports, per source: does it still open, is it bright enough, how many
+# objects our detector actually finds, and whether a signal head is visible.
+# ============================================================================
+#
+# WHY WE NEED THESE AT ALL
+# The EDS validation experiment needs 150+ evidence packages spanning a range
+# of quality. With the calibration corrected, our one 10-second clip yields
+# ONE. The experiment is blocked on footage, not on code.
+#
+# WHAT MAKES A SOURCE USEFUL HERE, IN ORDER
+#   1. STATIC camera. Every geometric rule -- stop line, lane polygon,
+#      homography -- is meaningless on a moving camera. This is the hard gate.
+#   2. Elevated view. Matches an enforcement camera, and is the viewpoint our
+#      detector is weakest on, so it is the honest thing to test against.
+#   3. Signal head in frame, for red_light_jump and stop_line_crossing.
+#   4. Indian traffic, for the classes the model was trained on.
+#   5. Daylight AT THE TIME YOU WILL DEMO. See utc_offset below.
+#
+# TIME ZONES ARE THE QUIET TRAP
+# `utc_offset` is the source's own offset. The checker turns it into local time
+# so you can see whether a camera is in daylight right now. Fresno at UTC-7 is
+# bright roughly 21:30-05:30 IST -- so it is a NIGHT demo in India, which is
+# exactly the mistake worth catching before building a demo on it.
+
+sources:
+
+  # ---------------------------------------------------------------------
+  # LIVE -- verified reachable on 11 October 2026
+  # ---------------------------------------------------------------------
+
+  # CHECKED 11 Oct 2026: reachable, 1280x720. Probed at 23:38 local = NIGHT,
+  # brightness 81.6 but 0.0 objects/frame -- the detector sees nothing in the
+  # dark. Probe again during Fresno daylight (21:30-05:30 IST) before judging.
+  - id: fresno_friant_intersection
+    kind: live
+    url: https://www.youtube.com/watch?v=sTF-6_xinUU
+    place: "Friant & Audubon, Fresno, California"
+    utc_offset: -7
+    static: true
+    elevated: true
+    signalised: true
+    indian: false
+    notes: >
+      The best SIGNALISED junction we have found that is genuinely live and
+      stays up. Multiple signal heads clearly visible; HSV read the near head
+      as red at 55% of pixels and two far heads as green at 81% and 78%.
+      The detector found NO traffic light in frame at night, which is why the
+      signal head is now drawn in calibration instead of detected -- press G in
+      scripts/calibrate.py.
+      US vehicles, so the Indian classes do not apply; use it to demonstrate
+      the junction RULES, not detector accuracy.
+      Daylight here is roughly 21:30-05:30 IST. Record a clip overnight rather
+      than demoing it live during an Indian daytime review.
+
+  # CHECKED 11 Oct 2026: reachable, 1280x720, brightness 33.1 at 22:38 local.
+  # Too dark to detect anything; same caveat as Fresno.
+  - id: sf_bay_bridge
+    kind: live
+    url: https://www.youtube.com/watch?v=CXYr04BWvmc
+    place: "San Francisco-Oakland Bay Bridge"
+    utc_offset: -8
+    static: true
+    elevated: true
+    signalised: false
+    indian: false
+    notes: >
+      Verified live. Free-flowing bridge traffic, no junction and no signal, so
+      it suits over_speeding and lane_discipline rather than anything
+      signal-dependent.
+
+  # ---------------------------------------------------------------------
+  # LIVE -- found by search, NOT yet verified. Run the checker.
+  # ---------------------------------------------------------------------
+
+  # CHECKED 11 Oct 2026: DEAD. "This video is unavailable."
+  - id: india_street_live
+    kind: rejected
+    url: https://www.youtube.com/watch?v=nUsIDcbi70M
+    place: "India, street level (channel does not name the city)"
+    utc_offset: 5.5
+    static: true
+    elevated: false
+    signalised: false
+    indian: true
+    notes: >
+      UNVERIFIED. Described as street life rather than a signalised junction,
+      and street-level rather than elevated. Indian traffic is the draw.
+
+  # CHECKED 11 Oct 2026: DEAD. Resolves to a 16-minute VOD, not a live
+  # stream, and OpenCV cannot open it even with the FFMPEG backend forced.
+  - id: live_cctv_roadside
+    kind: rejected
+    url: https://www.youtube.com/watch?v=mOggyoJLmtM
+    place: "roadside CCTV, location unstated"
+    utc_offset: null
+    static: true
+    elevated: false
+    signalised: false
+    indian: false
+    notes: "UNVERIFIED. Listing was over a year old; may well be dead."
+
+  # CHECKED 11 Oct 2026: DEAD. Resolves but will not open. A shame -- the
+  # description was the closest match to what we need.
+  - id: traffic_signal_clearance
+    kind: rejected
+    url: https://www.youtube.com/watch?v=7MBKXmt8U4w
+    place: "unstated; described as signals changing at intersections"
+    utc_offset: null
+    static: true
+    elevated: true
+    signalised: true
+    indian: false
+    notes: >
+      UNVERIFIED but the description is the closest match to what we need --
+      signals changing, vehicles crossing. Worth probing first.
+
+  # ---------------------------------------------------------------------
+  # AGGREGATORS -- browse by hand, then add the specific feed here
+  # ---------------------------------------------------------------------
+
+  - id: opencctv_india
+    kind: aggregator
+    url: https://opencctv.org/livetraffic/india
+    place: "India, incl. Chennai (Tiruvottiyur, Choolaimedu High Road)"
+    notes: >
+      Most entries refresh every 1-5 minutes, i.e. SNAPSHOTS not video. Useless
+      for tracking, which needs continuous frames. Check the refresh rate
+      before bothering.
+
+  - id: trafficvision_live
+    kind: aggregator
+    url: https://trafficvision.live/blog/india-traffic-cameras
+    place: "claims 12,000+ Indian feeds"
+    notes: >
+      Large unverified marketing claim. We tested one of its Ottawa cameras in
+      August and the feed worked, so the platform is real; whether the Indian
+      feeds are continuous video is the open question.
+
+  - id: earthlive24_india
+    kind: aggregator
+    url: https://earthlive24.com/country/india
+    place: "India, incl. a Mumbai traffic cam"
+    notes: "Unverified. Mixed webcams, few of them traffic."
+
+  # ---------------------------------------------------------------------
+  # RESEARCH DATASETS -- request or download by hand, check the licence
+  # ---------------------------------------------------------------------
+
+  - id: uvh26_bengaluru
+    kind: dataset
+    url: https://arxiv.org/abs/2511.02563
+    place: "Bengaluru, ~2800 Safe City police cameras"
+    indian: true
+    signalised: true
+    notes: >
+      The closest match to real Indian enforcement CCTV, and from the same
+      Safe City programme as BMD-45 which we already cite for the viewpoint
+      domain gap. ANNOTATED FRAMES, not continuous video -- so it suits
+      retraining the detector on the CCTV viewpoint, which is our main
+      technical gap, rather than producing evidence packages.
+      Check the release location and licence in the paper.
+
+  - id: fluid_signalised
+    kind: dataset
+    url: https://arxiv.org/abs/2509.00497
+    place: "three signalised intersections (country unstated)"
+    signalised: true
+    notes: >
+      Privacy-preserved MP4 at 10 FPS plus MANUALLY ANNOTATED SIGNAL STATE in
+      CSV -- that second part is rare and valuable: ground truth to check our
+      HSV signal reader against. Released via figshare.
+      Appears to be drone-recorded rather than fixed CCTV; verify, because a
+      drone that drifts breaks every geometric rule.
+
+  - id: eyeontraffic_ahmedabad
+    kind: dataset
+    url: https://arxiv.org/abs/2008.00827
+    place: "Ahmedabad, India -- 3 intersections, ~1h aerial each"
+    indian: true
+    signalised: true
+    notes: >
+      Two four-way signalised intersections and one unsignalised, Indian
+      traffic, roughly an hour each. AERIAL, so the viewpoint is further from
+      an enforcement camera than CCTV is -- but it is Indian, signalised, long,
+      and static, which no other candidate manages at once.
+
+  - id: iith_accident_hyderabad
+    kind: dataset
+    url: https://sites.google.com/site/dineshsinghindian/iith_accident-dataset
+    place: "Hyderabad city CCTV, 30fps"
+    indian: true
+    notes: >
+      Real Hyderabad CCTV, which is exactly our deployment city. Accident
+      clips rather than general flow, so it is narrow -- but it is genuine
+      Indian enforcement-camera footage at the right viewpoint.
+
+  - id: traffic_surveillance_dataset_index
+    kind: dataset
+    url: https://github.com/gustavovelascoh/traffic-surveillance-dataset
+    place: "index of video traffic-surveillance datasets, intersection focus"
+    notes: >
+      Not a dataset -- a curated INDEX of them, explicitly focused on
+      intersection surveillance and excluding onboard/dashcam data. The fastest
+      way to find more without searching blind.
+
+  - id: aicity_cityflow
+    kind: dataset
+    url: https://www.aicitychallenge.org/
+    place: "27 camera views at signalised intersections (US)"
+    signalised: true
+    indian: false
+    notes: >
+      Large, well-annotated, static elevated cameras at signalised junctions.
+      Not Indian, so the class distribution is wrong -- but it is the right
+      VIEWPOINT, which makes it a candidate for the CCTV-domain fine-tune.
+
+  # ---------------------------------------------------------------------
+  # ALREADY REJECTED -- recorded so nobody re-evaluates them
+  # ---------------------------------------------------------------------
+
+  - id: unidatapro_realtime
+    kind: rejected
+    url: https://www.kaggle.com/datasets/unidpro/real-time-traffic-video-dataset
+    notes: "2 videos, cars only, CC-BY-NC-ND -- the ND forbids derivative use."
+
+  - id: farzadnekouee_density
+    kind: rejected
+    url: https://www.kaggle.com/code/farzadnekouei/
+    notes: "Single merged `Vehicle` class and aerial. No class detail to work with."
+
+  - id: datacluster_kaggle
+    kind: rejected
+    url: https://www.kaggle.com/datasets/dataclusterlabs
+    notes: >
+      Advertised 16k/40k images; the public sets are 47-100 image teasers. We
+      checked this via the API after quoting the advertised figure by mistake.

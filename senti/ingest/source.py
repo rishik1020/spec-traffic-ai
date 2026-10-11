@@ -107,7 +107,16 @@ class VideoSource:
 
     def open(self) -> StreamInfo:
         self.source = resolve_source(self.source)
-        cap = cv2.VideoCapture(self.source)
+        # Force FFMPEG for URLs. Left to choose, OpenCV inspects the string and
+        # for a resolved YouTube URL -- hundreds of characters of query
+        # parameters, no file extension -- it picks the IMAGE SEQUENCE backend
+        # and dies with "expected '0?[1-9][du]' pattern". That reads like a
+        # dead stream, so a perfectly good source gets written off. Naming the
+        # backend removes the guess.
+        if isinstance(self.source, str) and '://' in self.source:
+            cap = cv2.VideoCapture(self.source, cv2.CAP_FFMPEG)
+        else:
+            cap = cv2.VideoCapture(self.source)
         if not cap.isOpened():
             raise RuntimeError(f'could not open video source: {self.source!r}')
 
