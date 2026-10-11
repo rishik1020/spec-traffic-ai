@@ -13,6 +13,8 @@ data/evidence/
 data/videos/
 # officer decisions -- run artefacts;
 data/review/
+# generated with the evidence it describes
+data/review_set_manifest.json
 # validation RESULTS are exported to results/
 # annotated runs for the monitor screen -- large, regenerable
 data/monitor/
