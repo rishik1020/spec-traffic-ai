@@ -100,6 +100,31 @@ class StopLine:
         a, b = self.side(prev), self.side(curr)
         return a != 0 and b != 0 and (a > 0) != (b > 0)
 
+    def distance(self, pt: Point) -> float:
+        """Perpendicular distance from a point to the line, in pixels.
+
+        Lets a rule distinguish "touching the line" from "sitting a metre past
+        it", which is the difference between a tyre on the paint and a vehicle
+        parked inside the pedestrian crossing.
+        """
+        (x1, y1), (x2, y2) = self.line
+        mag = math.hypot(x2 - x1, y2 - y1)
+        return abs(self.side(pt)) / mag if mag > 1e-9 else 0.0
+
+    def beyond_sign(self, heading: Sequence[float]) -> float:
+        """Which sign of side() lies PAST the line for traffic going `heading`.
+
+        "Past the stop line" has no meaning until you know which way traffic
+        approaches it. Stepping a short way along the lane's permitted heading
+        from the line's midpoint lands on the far side, and its sign is the
+        answer -- derived from calibration already present rather than asked for
+        again.
+        """
+        (x1, y1), (x2, y2) = self.line
+        mid = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+        ahead = (mid[0] + heading[0] * 10.0, mid[1] + heading[1] * 10.0)
+        return 1.0 if self.side(ahead) > 0 else -1.0
+
 
 @dataclass
 class Homography:
