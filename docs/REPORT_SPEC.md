@@ -69,9 +69,25 @@ rather than with feature lists.
 - Rhead et al. 2012 — ANPR 28.5% misread *(UK 2012; present as a floor)*
 - Webster 1958 · IRC:93 · MV Act · s.65B / BSA 2023 s.63
 
-**GAP: 13 references. Need 15–20.** Add: ByteTrack, YOLO/YOLOv11,
-Kerala/Bengaluru sources formally, and one or two on automatic camera
-calibration.
+**Reference gap CLOSED — verified on arXiv 11 Oct 2026, not guessed:**
+
+- Zhang, Sun, Jiang, Yu et al., *ByteTrack: Multi-Object Tracking by
+  Associating Every Detection Box*, **arXiv:2110.06864** (2021).
+  Cite where the report states tracking is a Kalman filter and Hungarian
+  matching rather than a learned model.
+- Khanam & Hussain, *YOLOv11: An Overview of the Key Architectural
+  Enhancements*, **arXiv:2410.17725** (2024).
+  Cite for the detector architecture, which both our fine-tune and UVH-26 share.
+- Sochor, Juránek & Herout, *Traffic Surveillance Camera Calibration by 3D
+  Model Bounding Box Alignment*, **arXiv:1702.06451** (2017).
+- Jain & Saunier, *Autocamera Calibration for Traffic Surveillance Cameras
+  with Wide Angle Lenses*, **arXiv:2001.07243** (2020).
+  Both belong in Future Work: automatic calibration is the step that turns
+  "works on a camera" into "works on cameras", and `measure_headings.py` is a
+  first move in that direction. Citing prior art here shows the gap was
+  surveyed rather than assumed.
+
+That is **17**, clearing the 15 minimum with room to drop one.
 
 ### 3. Objectives & Methodology
 - One shared perception pass, many independent consumers
