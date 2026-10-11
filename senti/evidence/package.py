@@ -167,6 +167,8 @@ class EvidenceWriter:
         violation_frame=None,
         approach_frame=None,
         plate_conf: float = 0.0,
+        plate_crop=None,
+        plate_detail=None,
         signal_state: str = 'unknown',
         signal_score: float = 0.0,
         track_frames: int = 0,
@@ -186,10 +188,21 @@ class EvidenceWriter:
         if approach_frame is not None:
             cv2.imwrite(str(folder / 'frame_approach.jpg'), approach_frame)
 
+        # The plate crop is the image an officer reads to confirm the vehicle.
+        # Saved beside the frames because it IS the evidence that identifies
+        # who gets the challan.
+        plate_file = None
+        if plate_crop is not None and getattr(plate_crop, 'size', 0):
+            cv2.imwrite(str(folder / 'plate.jpg'), plate_crop)
+            plate_file = 'plate.jpg'
+
         eds = Defensibility.compute(
             violation, subject, shape,
             plate_conf=plate_conf, signal_score=signal_score,
             track_frames=track_frames,
+            # A plate was looked for. Whether one was found is what plate_conf
+            # says -- so the dimension now counts, instead of being dropped.
+            plate_available=plate_file is not None,
         )
 
         record = {
@@ -215,6 +228,8 @@ class EvidenceWriter:
                 'recorded_at_ist': datetime.now(IST).strftime('%d-%m-%Y %H:%M:%S IST'),
             },
             'context': {
+                'plate_readability': round(plate_conf, 4),
+                'plate_detail': plate_detail or {},
                 'signal_state': signal_state,
                 'signal_confidence': round(signal_score, 4),
                 'track_frames': track_frames,
@@ -227,6 +242,7 @@ class EvidenceWriter:
                 'clip': clip_path.name if clip_path else None,
                 'violation_frame': 'frame_violation.jpg' if violation_frame is not None else None,
                 'approach_frame': 'frame_approach.jpg' if approach_frame is not None else None,
+                'plate': plate_file,
             },
             'review': {'status': 'pending', 'officer': None, 'decision_at': None,
                        'plate_number': None, 'rejection_reason': None},

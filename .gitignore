@@ -2,6 +2,7 @@
 *.pt
 # third-party weights -- fetched from HuggingFace, not ours to redistribute
 models/uvh26/
+models/plates/
 datasets/
 runs/
 weights/

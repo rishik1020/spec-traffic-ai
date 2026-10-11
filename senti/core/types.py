@@ -93,6 +93,13 @@ class Detection:
     track_id: Optional[int] = None
     frame_index: int = -1
 
+    # The number plate, once found. A challan is issued to a VEHICLE, so this
+    # is what turns a detection into something that can be enforced -- and
+    # plate_conf is the 0.30-weighted input to the defensibility score, which
+    # scored nothing at all until plates existed.
+    plate_xyxy: Optional[tuple] = None
+    plate_conf: float = 0.0
+
     # -- geometry the rule engine leans on ---------------------------------
 
     @property

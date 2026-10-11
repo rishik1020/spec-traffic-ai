@@ -32,6 +32,7 @@ from .evidence.buffer import RollingBuffer
 from .evidence.package import EvidenceWriter
 from .ingest.source import VideoSource
 from .perception.detector import TrafficDetector, read_signal_state
+from .perception.plates import PlateDetector
 # importing the package autoloads and registers every rule module
 from .rules import Rule, Violation, available_rules, get_rule
 from .signal import AdaptiveController, DemandMeter, SignalPlan
@@ -62,6 +63,20 @@ class Engine:
             imgsz=int(self.config.get('imgsz', 640)),
             device=device,
         )
+
+        # Plates are a SECOND detector pass. Off unless the camera asks, since
+        # it costs another inference per frame and only matters where a challan
+        # might actually be issued.
+        pl = self.config.get('plates')
+        self.plates: Optional[PlateDetector] = None
+        if pl is not False:
+            pl = pl if isinstance(pl, dict) else {}
+            det = PlateDetector(
+                weights=pl.get('weights', PlateDetector.__init__.__defaults__[0]),
+                device=device, imgsz=int(pl.get('imgsz', self.config.get('imgsz', 1280))),
+                conf=float(pl.get('conf', 0.25)),
+                min_overlap=float(pl.get('min_overlap', 0.6)))
+            self.plates = det if det.available else None
 
         # only the rules this camera enables -- see the class docstring
         self.rules: list[Rule] = []
@@ -153,6 +168,8 @@ class Engine:
 
         for idx, ts, frame in src.frames():
             result = self.detector.track(frame, frame_index=idx, timestamp=ts)
+            if self.plates is not None:
+                self.plates.attach(frame, result.detections)
             self.buffer.push(idx, ts, frame)
 
             for d in result.detections:
@@ -295,7 +312,17 @@ class Engine:
             'violation': v,
             'rule': rule,
             'subject': result.by_track(v.track_id),
+            # NOT the detector's confidence -- how readable the plate actually
+            # is. See PlateDetector.readability for why those differ.
+            'plate_conf': (self.plates.readability(frame, result.by_track(v.track_id))[0]
+                           if self.plates is not None and result.by_track(v.track_id)
+                           else 0.0),
+            'plate_detail': (self.plates.readability(frame, result.by_track(v.track_id))[1]
+                             if self.plates is not None and result.by_track(v.track_id)
+                             else {}),
             'violation_frame': frame.copy(),
+            'plate_crop': (self.plates.crop(frame, result.by_track(v.track_id))
+                           if self.plates is not None else None),
             'context': dict(context),
             'track_frames': self._track_frames.get(v.track_id, 0),
         }
@@ -326,7 +353,9 @@ class Engine:
             subject=meta['subject'],
             violation_frame=meta['violation_frame'],
             approach_frame=approach,
-            plate_conf=0.0,                       # ANPR not wired yet
+            plate_conf=meta.get('plate_conf', 0.0),
+            plate_crop=meta.get('plate_crop'),
+            plate_detail=meta.get('plate_detail'),
             signal_state=meta['context'].get('signal_state', 'unknown'),
             signal_score=meta['context'].get('signal_score', 0.0),
             track_frames=meta['track_frames'],
