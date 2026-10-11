@@ -172,6 +172,10 @@ sources:
       technical gap, rather than producing evidence packages.
       Check the release location and licence in the paper.
 
+  # CHECKED 11 Oct 2026: the arXiv page states NO download location and NO
+  # licence, and the country is never named. It is also DRONE footage, which
+  # is a worse domain match for a dashcam-trained detector than CCTV is.
+  # Low priority despite the valuable annotated signal state.
   - id: fluid_signalised
     kind: dataset
     url: https://arxiv.org/abs/2509.00497
@@ -184,8 +188,15 @@ sources:
       Appears to be drone-recorded rather than fixed CCTV; verify, because a
       drone that drifts breaks every geometric rule.
 
+  # ============================================================
+  # CHECKED 11 Oct 2026: DATASET IS GONE. Every Google Drive link in the
+  # repository README -- all 10 videos, all CSVs, the spatial annotations --
+  # returns 404, confirmed in a real browser: "the file you have requested
+  # does not exist". The paper and the README remain; the data does not.
+  # Contact the authors if you need it. Do not spend time on the links.
+  # ============================================================
   - id: eyeontraffic_ahmedabad
-    kind: dataset
+    kind: rejected
     url: https://arxiv.org/abs/2008.00827
     place: "Ahmedabad, India -- 3 intersections, ~1h aerial each"
     indian: true
@@ -246,3 +257,29 @@ sources:
     notes: >
       Advertised 16k/40k images; the public sets are 47-100 image teasers. We
       checked this via the API after quoting the advertised figure by mistake.
+
+  # ---------------------------------------------------------------------
+  # ROUTES THAT DO NOT WORK -- checked 11 October 2026, do not retry blind
+  # ---------------------------------------------------------------------
+
+  - id: pixabay_india_traffic
+    kind: rejected
+    url: https://pixabay.com/videos/search/india%20traffic/
+    notes: >
+      Free licence and 4K, which is ideal, but Cloudflare blocks automated
+      download: yt-dlp returns HTTP 403 "Cloudflare anti-bot challenge".
+      A HUMAN can still download these in a browser, and that is the right way
+      to use this source. Most clips are 5-30s and cinematic rather than
+      static, so filter for a fixed camera before bothering.
+
+  - id: youtube_vod_download
+    kind: rejected
+    notes: >
+      YouTube VOD downloads are mostly blocked: 3 of 4 attempts returned HTTP
+      403 Forbidden across tv_simply, ios, web_embedded and mweb player
+      clients. LIVE streams still resolve and play fine, which is why the
+      Fresno camera remains the most reliable source we have.
+      The one VOD that did download (7aSkJCUDAes, "Mad crossroad", India) was
+      measured and discarded: 640x360, 0.2 objects/frame against kolkata.mp4's
+      10, and frame-to-frame motion 21.6 -- a panning camera, which fails the
+      static-camera gate that every geometric rule depends on.
