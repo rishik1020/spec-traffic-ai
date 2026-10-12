@@ -1,9 +1,11 @@
 camera_id: kolkata
-# UVH-26, not our DriveIndia fine-tune. On this very footage, same frame,
-# same confidence threshold: ours found 11 vehicles, UVH-26 found 52 -- and
-# ours labelled a black SUV and a white sedan as `bus` at 0.91 and 0.85, which
-# is the viewpoint domain gap in a single image. UVH-26 is trained on 26,646
-# frames from 2,800 Bengaluru Safe-City CCTV cameras, so an elevated view is
+# UVH-26, not our DriveIndia fine-tune. On this very footage, same frame, same
+# inference settings (imgsz 1280, conf 0.25): ours found 10 vehicles, UVH-26
+# found 56 -- and ours labelled 4 of its 10 `bus`, a black SUV among them at
+# 0.75, on a frame holding one actual bus. That is the viewpoint domain gap in
+# a single image. Reproduce with: python scripts/make_figures.py
+#
+# UVH-26 is trained on 26,646 frames from 2,800 Bengaluru Safe-City CCTV cameras, so an elevated view is
 # its native domain rather than a shift away from it.
 #
 # COST: UVH-26 has 14 vehicle classes and NO pedestrian. Nothing enabled on

@@ -11,26 +11,22 @@ Mentor: Prof. Meher Gayatri
 
 India records the highest number of road-accident fatalities worldwide, yet manual
 enforcement cannot scale to urban vehicle density and existing closed-circuit
-television infrastructure remains confined to passive monitoring. Detectors trained
-on general-purpose Western datasets contain no auto-rickshaw class, rendering them
-structurally incapable of enforcing violations against a substantial share of Indian
-traffic. This project develops SPEC Traffic AI, a modular enforcement platform
-designed for Indian road conditions. A single shared perception pass performs vehicle
-and number-plate detection, ByteTrack assigns persistent identities, and an
-extensible rule engine evaluates violations as independent geometric modules
-configured per camera. Confirmed violations trigger a rolling frame buffer producing
-an evidence package containing the approach, violation and departure sequence
-together with a plain-language reason trace. A novel Evidence Defensibility Score
-assesses whether each detection would withstand legal challenge and routes it for
-officer verification accordingly. The same perception pass drives a second output:
-congestion is measured per junction arm in Passenger Car Units rather than vehicle
-counts, and Webster's method converts it into a recommended green-time split, issued
-as an advisory plan the system deliberately cannot actuate. Evaluation established a
-detection accuracy of 0.703 mAP@50 on a held-out test split and identified a
-quantified viewpoint domain gap between dashcam training imagery and
-enforcement-camera geometry. The platform enables authorities to scale enforcement
-while ensuring no challan is issued without human approval under the Motor Vehicles
-Act.
+television infrastructure remains confined to passive monitoring. Detectors trained on
+Western datasets contain no auto-rickshaw class, rendering them structurally incapable
+of enforcing violations against a substantial share of Indian traffic. This project
+develops SPEC Traffic AI, a modular enforcement platform for Indian road conditions. A
+single shared perception pass performs vehicle and number-plate detection, ByteTrack
+assigns persistent identities, and an extensible rule engine evaluates violations as
+geometric modules configured per camera. Confirmed violations produce an evidence
+package spanning approach, violation and departure with a plain-language reason trace.
+A novel Evidence Defensibility Score assesses whether a detection would withstand legal
+challenge and routes it for officer verification accordingly. The same perception pass
+measures congestion per junction arm in Passenger Car Units, which Webster's method
+converts into an advisory green-time split the system deliberately cannot actuate.
+Evaluation established 0.703 mAP@50 on a held-out test split and quantified a viewpoint
+domain gap between dashcam imagery and enforcement-camera geometry. The platform allows
+authorities to scale enforcement while ensuring no challan issues without human
+approval under the Motor Vehicles Act.
 
 **Keywords:** Traffic Violation Detection; Computer Vision; Intelligent Transportation
 Systems; Human-in-the-Loop Verification; Explainable AI; Adaptive Signal Control
@@ -198,6 +194,8 @@ Rules are self-registering modules declaring the classes they inspect and the
 calibration they require. Adding a violation is a single file; deploying to a new
 camera is a single configuration file.
 
+![Figure 1: System architecture. One perception pass serves two independent consumers, so adding signal timing introduced no additional inference cost.](figures/fig1_architecture.png)
+
 ### 4.2 Temporal Consistency and Abstention
 
 Two design decisions dominate false-positive behaviour. Temporal consistency is
@@ -297,19 +295,29 @@ Restricting the mean to the eighteen adequately supported classes yields 0.800, 
 to the seven enforcement-relevant classes 0.868. Auto-rickshaw, absent from COCO,
 reached 0.888. The train-to-test generalisation gap of 0.147 is reported rather than
 omitted; the close agreement between validation and test figures indicates a
-representative split.
+representative split. The gap is shown across splits in Figure 2, and accuracy for
+each individual class in Figure 3.
+
+![Figure 2: Generalisation gap across the train, validation and test splits.](figures/fig3_generalisation_gap.png)
+
+![Figure 3: Per-class detection accuracy on the held-out test split.](figures/fig4_per_class.png)
 
 ### 5.2 The Viewpoint Domain Gap
 
 Testing on elevated footage revealed systematic misclassification of large vehicles.
 Comparison against a detector trained on enforcement-camera imagery quantified the
-effect. On an identical frame at identical confidence threshold, the DriveIndia
-fine-tune produced 11 detections while the UVH-26 model produced 52, with the former
-labelling a sport-utility vehicle and a sedan as buses at confidences of 0.91 and
-0.85 respectively (Figure 2). Across six sampled frames the totals were 33 and 330.
+effect. Both detectors were run on identical frames at the deployed inference
+settings, an input size of 1280 pixels and a confidence floor of 0.25. On a single
+frame the DriveIndia fine-tune produced 10 detections against the UVH-26 model's 56,
+and four of those ten were labelled bus, among them a sport-utility vehicle at 0.75
+confidence, in a scene containing one bus (Figure 4). Across six frames sampled
+evenly through the sequence the totals were 44 and 389, the fine-tune never exceeding
+14 detections on a frame in which the comparison model found 65.
 This independently corroborates the cross-domain collapse reported for BMD-45 [14],
 and the UVH-26 model was consequently adopted as the default detector for elevated
 cameras.
+
+![Figure 4: Viewpoint domain gap on one frame at identical inference settings. The DriveIndia fine-tune (left) returns 10 detections and labels four of them bus, including the black sport-utility vehicle; the UVH-26 model (right) returns 56.](figures/fig2_domain_gap.png)
 
 ### 5.3 Calibration and False-Positive Reduction
 
@@ -360,13 +368,18 @@ reviewer who examines the footage and records a citation in their own words, and
 citations accumulate rather than overwrite, so that a package escalated and
 subsequently approved carries two human attestations. Given that certification of
 electronic records depends upon human attestation, retaining both is a requirement of
-the chain of custody rather than an interface convenience.
+the chain of custody rather than an interface convenience. A draft challan as presented to
+the reviewing officer is shown in Figure 5.
+
+![Figure 5: Officer review portal, showing a draft challan with the violation, the defensibility score and the statutory penalty.](figures/fig5_portal.png)
 
 The signal controller was verified across four scripted demand scenarios. Green time
 follows measured queue, increasing from 37 to 57 seconds as demand built; an empty
 arm continued to receive its minimum allocation each cycle; and beyond practical
 capacity the controller reported the condition rather than returning an unusable
-cycle length.
+cycle length. The resulting allocation is shown in Figure 6.
+
+![Figure 6: Green time allocation following measured queue across the scripted demand scenarios.](figures/fig6_signal_split.png)
 
 ### 5.7 Score Distribution Across the Evidence Set
 
@@ -480,16 +493,3 @@ officers, reporting the area under the receiver operating characteristic curve.
 [16] A. G. Jain and N. Saunier, "Autocamera Calibration for Traffic Surveillance Cameras with Wide Angle Lenses," arXiv:2001.07243, 2020.
 
 [17] Bengaluru Traffic Police, "Intelligent Traffic Management System — reported helmet-detection accuracy and manual revalidation practice."
-
----
-
-## Figures referenced
-
-- **Figure 1:** System architecture — one perception pass, two consumers
-  (`results/driveindia/` — to be drawn)
-- **Figure 2:** Viewpoint domain gap — same frame, 11 detections against 52
-  (`cmp_ours.jpg` / `cmp_uvh.jpg`)
-- **Figure 3:** Generalisation gap across splits (`generalisation_gap.png`)
-- **Figure 4:** Per-class accuracy (`per_class.png`)
-- **Figure 5:** Officer review portal — challan draft
-- **Figure 6:** Green time following measured queue (`signal_split.png`)
