@@ -25,3 +25,6 @@ data/monitor/
 data/signal/
 *.log
 train.log
+
+# scratch profile written by scripts/capture_portal.py
+.cache/
